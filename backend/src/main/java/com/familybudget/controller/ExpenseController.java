@@ -14,6 +14,8 @@ import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +30,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/workspaces/{workspaceId}/expenses")
 public class ExpenseController {
+
+    private static final Logger log = LoggerFactory.getLogger(ExpenseController.class);
 
     private final ExpenseRepository expenseRepository;
     private final BudgetCategoryRepository categoryRepository;
@@ -125,6 +129,7 @@ public class ExpenseController {
 
         Expense saved = expenseRepository.save(expense);
         eventPublisher.publish(workspaceId, "EXPENSE_CREATED", "EXPENSE", saved.getId());
+        log.info("Expense created workspaceId={} expenseId={} amount={} userId={}", workspaceId, saved.getId(), saved.getAmount(), user.getId());
         return ExpenseResponse.from(saved);
     }
 

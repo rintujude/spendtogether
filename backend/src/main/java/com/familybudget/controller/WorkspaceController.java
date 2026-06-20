@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/workspaces")
 public class WorkspaceController {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkspaceController.class);
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
@@ -72,6 +76,7 @@ public class WorkspaceController {
         member.setRole(WorkspaceMember.Role.OWNER);
         member.setStatus(WorkspaceMember.Status.ACTIVE);
         memberRepository.save(member);
+        log.info("Workspace created workspaceId={} ownerUserId={} currencyCode={}", workspace.getId(), user.getId(), workspace.getCurrencyCode());
 
         return WorkspaceResponse.from(workspace);
     }
@@ -88,6 +93,7 @@ public class WorkspaceController {
 
         Workspace saved = workspaceRepository.save(workspace);
         eventPublisher.publish(workspaceId, "WORKSPACE_UPDATED", "WORKSPACE", saved.getId());
+        log.info("Workspace updated workspaceId={} userId={}", workspaceId, accessService.requireCurrentUser(principal).getId());
         return WorkspaceResponse.from(saved);
     }
 

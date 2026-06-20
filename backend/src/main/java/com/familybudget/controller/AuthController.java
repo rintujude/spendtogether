@@ -10,6 +10,8 @@ import com.familybudget.repository.UserRepository;
 import com.familybudget.service.CurrentUserService;
 import jakarta.validation.Valid;
 import java.security.Principal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -53,6 +57,7 @@ public class AuthController {
         user.setEmail(request.email().toLowerCase());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         userRepository.save(user);
+        log.info("User registered userId={} email={}", user.getId(), user.getEmail());
 
         return authResponse(user);
     }
@@ -63,9 +68,11 @@ public class AuthController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            log.warn("User login failed email={}", request.email().toLowerCase());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
+        log.info("User logged in successfully userId={}", user.getId());
         return authResponse(user);
     }
 

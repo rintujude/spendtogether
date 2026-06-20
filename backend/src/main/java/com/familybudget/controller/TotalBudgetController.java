@@ -10,6 +10,8 @@ import java.security.Principal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/budgets")
 public class TotalBudgetController {
+
+    private static final Logger log = LoggerFactory.getLogger(TotalBudgetController.class);
 
     private final WorkspaceMonthlyTotalBudgetRepository totalBudgetRepository;
     private final WorkspaceAccessService accessService;
@@ -63,6 +67,7 @@ public class TotalBudgetController {
         totalBudget.setUpdatedByUser(user);
         WorkspaceMonthlyTotalBudget saved = totalBudgetRepository.save(totalBudget);
         eventPublisher.publish(workspaceId, "MONTHLY_BUDGET_UPDATED", "BUDGET", saved.getId());
+        log.info("Total budget updated workspaceId={} budgetId={} year={} month={} amount={} userId={}", workspaceId, saved.getId(), saved.getBudgetYear(), saved.getBudgetMonth(), saved.getAmount(), user.getId());
 
         return new TotalBudgetResponse(
                 saved.getBudgetMonth(),

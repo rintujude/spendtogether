@@ -20,9 +20,13 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class NotificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     public record CreateNotificationCommand(
             UUID recipientUserId,
@@ -111,6 +115,7 @@ public class NotificationService {
 
         Notification saved = notificationRepository.save(notification);
         publishNotificationEvent(saved, "NOTIFICATION_CREATED");
+        log.info("Notification created notificationId={} recipientUserId={} workspaceId={} type={}", saved.getId(), recipient.getId(), command.workspaceId(), command.type());
         return toResponse(saved);
     }
 

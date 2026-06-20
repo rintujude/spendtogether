@@ -17,6 +17,8 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,6 +33,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/workspaces/{workspaceId}")
 public class WorkspaceMemberController {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkspaceMemberController.class);
 
     private final WorkspaceMemberRepository memberRepository;
     private final WorkspaceInvitationRepository invitationRepository;
@@ -126,6 +130,7 @@ public class WorkspaceMemberController {
                 ))
         );
         eventPublisher.publish(workspaceId, "WORKSPACE_UPDATED", "WORKSPACE_INVITATION", saved.getId());
+        log.info("Member invited workspaceId={} invitationId={} invitedByUserId={} role={}", workspaceId, saved.getId(), user.getId(), saved.getRole());
         return InvitationResponse.from(saved);
     }
 
@@ -145,6 +150,7 @@ public class WorkspaceMemberController {
         member.setRole(request.role());
         WorkspaceMember saved = memberRepository.save(member);
         eventPublisher.publish(workspaceId, "WORKSPACE_UPDATED", "WORKSPACE_MEMBER", saved.getId());
+        log.info("Member role updated workspaceId={} memberId={} role={}", workspaceId, saved.getId(), saved.getRole());
         return MemberResponse.from(saved);
     }
 
@@ -173,6 +179,7 @@ public class WorkspaceMemberController {
         softDeleteService.softDelete(member);
         WorkspaceMember saved = memberRepository.save(member);
         eventPublisher.publish(workspaceId, "WORKSPACE_UPDATED", "WORKSPACE_MEMBER", saved.getId());
+        log.info("Member removed workspaceId={} memberId={} removedByUserId={}", workspaceId, saved.getId(), currentUser.getId());
         return MemberResponse.from(saved);
     }
 

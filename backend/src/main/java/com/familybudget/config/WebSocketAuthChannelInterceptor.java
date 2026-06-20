@@ -14,9 +14,13 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
+
+    private static final Logger log = LoggerFactory.getLogger(WebSocketAuthChannelInterceptor.class);
 
     private static final String WORKSPACE_TOPIC_PREFIX = "/topic/workspaces/";
     private static final String USER_NOTIFICATION_TOPIC_PREFIX = "/topic/users/";
@@ -39,6 +43,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             authenticate(accessor);
+            log.info("WebSocket connect userId={}", accessor.getUser() instanceof AuthenticatedUser user ? user.userId() : "-");
         }
 
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())
@@ -52,11 +57,17 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
     private void authenticate(StompHeaderAccessor accessor) {
         String authorization = accessor.getFirstNativeHeader("Authorization");
         if (authorization == null || !authorization.startsWith("Bearer ")) {
+            log.warn("WebSocket authentication rejected reason=missing_token");
             throw new AccessDeniedException("Missing WebSocket authorization token");
         }
 
         String token = authorization.substring(7);
-        accessor.setUser(new AuthenticatedUser(jwtService.extractUserId(token), jwtService.extractSubject(token)));
+        try {
+            accessor.setUser(new AuthenticatedUser(jwtService.extractUserId(token), jwtService.extractSubject(token)));
+        } catch (RuntimeException ex) {
+            log.warn("WebSocket authentication rejected reason=invalid_token");
+            throw ex;
+        }
     }
 
     private void authorizeSubscription(StompHeaderAccessor accessor) {
@@ -71,11 +82,13 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
         if (destination.startsWith(WORKSPACE_TOPIC_PREFIX)) {
             UUID workspaceId = UUID.fromString(destination.substring(WORKSPACE_TOPIC_PREFIX.length()));
+            log.info("WebSocket workspace subscription attempt workspaceId={} userId={}", workspaceId, authenticatedUser.userId());
             if (!memberRepository.existsByWorkspaceIdAndUserIdAndStatus(
                     workspaceId,
                     authenticatedUser.userId(),
                     WorkspaceMember.Status.ACTIVE
             )) {
+                log.warn("WebSocket workspace subscription rejected workspaceId={} userId={}", workspaceId, authenticatedUser.userId());
                 throw new AccessDeniedException("User is not a member of this workspace");
             }
             return;
@@ -88,7 +101,9 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                     destination.length() - USER_NOTIFICATION_TOPIC_SUFFIX.length()
             );
             UUID userId = UUID.fromString(userIdText);
+            log.info("WebSocket notification subscription attempt targetUserId={} userId={}", userId, authenticatedUser.userId());
             if (!userId.equals(authenticatedUser.userId())) {
+                log.warn("WebSocket notification subscription rejected targetUserId={} userId={}", userId, authenticatedUser.userId());
                 throw new AccessDeniedException("User cannot subscribe to another user's notifications");
             }
         }

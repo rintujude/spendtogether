@@ -11,6 +11,8 @@ import java.security.Principal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/invitations")
 public class InvitationController {
+
+    private static final Logger log = LoggerFactory.getLogger(InvitationController.class);
 
     private final WorkspaceInvitationRepository invitationRepository;
     private final WorkspaceMemberRepository memberRepository;
@@ -84,6 +88,7 @@ public class InvitationController {
         invitationRepository.save(invitation);
         notificationService.markInvitationNotificationsAsRead(user.getId(), invitation.getId());
         eventPublisher.publish(invitation.getWorkspace().getId(), "MEMBER_JOINED", "WORKSPACE_MEMBER", membership.getId());
+        log.info("Invitation accepted workspaceId={} invitationId={} memberId={} userId={}", invitation.getWorkspace().getId(), invitation.getId(), membership.getId(), user.getId());
 
         return new AcceptInvitationResponse(
                 invitation.getWorkspace().getId(),
@@ -104,6 +109,7 @@ public class InvitationController {
         invitationRepository.save(invitation);
         notificationService.markInvitationNotificationsAsRead(user.getId(), invitation.getId());
         eventPublisher.publish(invitation.getWorkspace().getId(), "INVITATION_DECLINED", "WORKSPACE_INVITATION", invitation.getId());
+        log.info("Invitation declined workspaceId={} invitationId={} userId={}", invitation.getWorkspace().getId(), invitation.getId(), user.getId());
 
         return new DeclineInvitationResponse(invitation.getId(), invitation.getStatus());
     }

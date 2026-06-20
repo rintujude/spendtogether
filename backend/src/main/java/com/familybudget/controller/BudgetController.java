@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +33,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/workspaces/{workspaceId}/budgets")
 public class BudgetController {
+
+    private static final Logger log = LoggerFactory.getLogger(BudgetController.class);
 
     private final MonthlyBudgetRepository budgetRepository;
     private final BudgetCategoryRepository categoryRepository;
@@ -168,6 +172,7 @@ public class BudgetController {
 
         MonthlyBudget saved = budgetRepository.save(budget);
         eventPublisher.publish(workspaceId, "MONTHLY_BUDGET_UPDATED", "BUDGET", saved.getId());
+        log.info("Budget created workspaceId={} budgetId={} categoryId={} year={} month={} amount={}", workspaceId, saved.getId(), category.getId(), saved.getBudgetYear(), saved.getBudgetMonth(), saved.getLimitAmount());
         return BudgetResponse.from(saved);
     }
 
@@ -195,6 +200,7 @@ public class BudgetController {
         budget.setLimitAmount(request.limitAmount());
         MonthlyBudget saved = budgetRepository.save(budget);
         eventPublisher.publish(workspaceId, "MONTHLY_BUDGET_UPDATED", "BUDGET", saved.getId());
+        log.info("Budget updated workspaceId={} budgetId={} categoryId={} year={} month={} amount={}", workspaceId, saved.getId(), category.getId(), saved.getBudgetYear(), saved.getBudgetMonth(), saved.getLimitAmount());
         return BudgetResponse.from(saved);
     }
 
@@ -213,6 +219,7 @@ public class BudgetController {
         softDeleteService.softDelete(budget);
         MonthlyBudget saved = budgetRepository.save(budget);
         eventPublisher.publish(workspaceId, "MONTHLY_BUDGET_UPDATED", "BUDGET", saved.getId());
+        log.info("Budget soft deleted workspaceId={} budgetId={}", workspaceId, saved.getId());
         return BudgetResponse.from(saved);
     }
 
