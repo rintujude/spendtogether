@@ -51,7 +51,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            cd /opt/family-budget
+            cd /opt/family-budget/spendtogether
 
             echo "Pulling latest code..."
             git pull origin main
