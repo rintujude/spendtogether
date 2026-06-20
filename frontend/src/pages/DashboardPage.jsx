@@ -66,7 +66,7 @@ export function DashboardPage({
         <ChartCard title="Account spending" rows={accountChartRows} currencyCode={currencyCode} emptyTitle="No account spending" period={periods.accountPeriod} onPeriodChange={onPeriodChange.account} />
       </section>
 
-      <ChartCard title="Daily spending trend" rows={dailyChartRows} currencyCode={currencyCode} emptyTitle="No daily spending" period={periods.trendPeriod} onPeriodChange={onPeriodChange.trend} />
+      <ChartCard title="Daily spending trends" rows={dailyChartRows} currencyCode={currencyCode} emptyTitle="No daily spending" period={periods.trendPeriod} onPeriodChange={onPeriodChange.trend} />
     </>
   );
 }
