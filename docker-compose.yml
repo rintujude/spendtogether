@@ -1,21 +1,25 @@
 services:
-  db:
-    image: postgres:16
-    container_name: family-budget-postgres
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: family-budget-backend
+    restart: always
     environment:
-      POSTGRES_DB: ${DB_NAME:-family_budget}
-      POSTGRES_USER: ${DB_USERNAME:-family_budget_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me_locally}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "${DB_PORT:-5432}:5432"
-    volumes:
-      - family_budget_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-family_budget_user} -d ${DB_NAME:-family_budget}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "${BACKEND_PORT:-8080}:8080"
 
-volumes:
-  family_budget_pgdata:
-
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: family-budget-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
