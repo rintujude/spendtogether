@@ -1,0 +1,82 @@
+name: Deploy Family Budget App
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "docker-compose.yml"
+      - ".github/workflows/deploy.yml"
+
+jobs:
+  detect-changes:
+    name: Detect changed folders
+    runs-on: ubuntu-latest
+
+    outputs:
+      backend_changed: ${{ steps.filter.outputs.backend }}
+      frontend_changed: ${{ steps.filter.outputs.frontend }}
+      compose_changed: ${{ steps.filter.outputs.compose }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check changed files
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            compose:
+              - 'docker-compose.yml'
+              - '.github/workflows/deploy.yml'
+
+  deploy:
+    name: Deploy changed services
+    needs: detect-changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy using SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            cd /opt/family-budget
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            BACKEND_CHANGED="${{ needs.detect-changes.outputs.backend_changed }}"
+            FRONTEND_CHANGED="${{ needs.detect-changes.outputs.frontend_changed }}"
+            COMPOSE_CHANGED="${{ needs.detect-changes.outputs.compose_changed }}"
+
+            echo "Backend changed: $BACKEND_CHANGED"
+            echo "Frontend changed: $FRONTEND_CHANGED"
+            echo "Compose changed: $COMPOSE_CHANGED"
+
+            if [ "$COMPOSE_CHANGED" = "true" ]; then
+              echo "Compose file changed. Deploying full app..."
+              docker compose up -d --build
+            else
+              if [ "$BACKEND_CHANGED" = "true" ]; then
+                echo "Deploying backend..."
+                docker compose up -d --build backend
+              fi
+
+              if [ "$FRONTEND_CHANGED" = "true" ]; then
+                echo "Deploying frontend..."
+                docker compose up -d --build frontend
+              fi
+            fi
+
+            docker image prune -f
