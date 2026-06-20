@@ -1,0 +1,28 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:family_budget}
+    username: ${DB_USERNAME:family_budget_user}
+    password: ${DB_PASSWORD:change_me_locally}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+
+app:
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:*}
+  jwt:
+    secret: ${JWT_SECRET:replace_with_a_long_random_secret_at_least_256_bits}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}

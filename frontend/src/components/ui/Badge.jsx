@@ -1,0 +1,17 @@
+import React from "react";
+import { cn } from "../../lib/utils";
+
+const tones = {
+  neutral: "border-border bg-slate-50 text-muted",
+  success: "border-green-200 bg-green-50 text-success",
+  warning: "border-amber-200 bg-amber-50 text-warning",
+  danger: "border-red-200 bg-red-50 text-danger",
+};
+
+export function Badge({ children, tone = "neutral", className = "" }) {
+  return (
+    <span className={cn("inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold", tones[tone], className)}>
+      {children}
+    </span>
+  );
+}
