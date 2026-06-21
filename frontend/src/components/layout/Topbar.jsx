@@ -1,6 +1,5 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
-import { BarChart3, Bell, CheckCheck, ChevronDown, CreditCard, Landmark, LogOut, Menu, Settings, Trash2, UserCircle, X } from "lucide-react";
+import { Bell, CheckCheck, ChevronDown, LogOut, Trash2, UserCircle, X } from "lucide-react";
 import {
   Badge,
   Button,
@@ -8,16 +7,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Sheet,
   Select,
 } from "../ui";
 import { currencyLabel } from "../../lib/currencies";
-
-const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
-  { to: "/manage-workspace", label: "Manage Workspace", icon: Settings },
-  { to: "/expenses", label: "Transactions", icon: CreditCard },
-];
 
 export function Topbar({
   user,
@@ -35,21 +27,17 @@ export function Topbar({
   onDeclineInvitation,
   onDeleteNotification,
 }) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
   const badgeText = unreadCount > 99 ? "99+" : String(unreadCount);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-5 py-4 backdrop-blur md:px-8">
-      <div className="mx-auto grid max-w-[1200px] gap-4">
+    <header className="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-xl sm:px-5 md:px-8 md:py-4">
+      <div className="mx-auto grid w-full max-w-[1200px] gap-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Button type="button" variant="secondary" className="h-10 w-10 px-0 lg:hidden" aria-label="Open navigation" onClick={() => setMenuOpen(true)}>
-              <Menu className="h-4 w-4" />
-            </Button>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{activeWorkspace?.name ?? "No workspace selected"}</p>
-              <p className="hidden text-xs font-medium text-muted sm:block">Cloud PostgreSQL source of truth after sync</p>
+              <p className="hidden text-xs font-medium text-muted sm:block">Shared budget workspace</p>
             </div>
             {activeWorkspace && <div className="hidden sm:block"><Badge>{currencyLabel(activeWorkspace.currencyCode)}</Badge></div>}
           </div>
@@ -106,7 +94,7 @@ export function Topbar({
             </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="secondary" className="shrink-0">
+                <Button type="button" variant="secondary" className="shrink-0 rounded-full pl-2.5 pr-3">
                   <UserCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">{user?.fullName ?? "User"}</span>
                   <ChevronDown className="h-4 w-4" />
@@ -136,40 +124,6 @@ export function Topbar({
           {activeWorkspace && <div className="pb-1 sm:hidden"><Badge>{activeWorkspace.currencyCode}</Badge></div>}
         </div>
       </div>
-      <Sheet title="Navigation" open={menuOpen} onOpenChange={setMenuOpen}>
-        <NavLink
-          to="/dashboard"
-          className="mb-8 flex items-center gap-3 rounded-xl outline-none transition hover:opacity-85 focus:ring-4 focus:ring-blue-100"
-          aria-label="Go to SpendTogether home"
-          onClick={() => setMenuOpen(false)}
-        >
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-white">
-            <Landmark className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-foreground">SpendTogether</p>
-            <p className="text-xs font-medium text-muted">{activeWorkspace?.name ?? "Select workspace"}</p>
-          </div>
-        </NavLink>
-        <nav className="grid gap-2" aria-label="Mobile navigation">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setMenuOpen(false)}
-                className={({ isActive }) => `flex h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${
-                  isActive ? "bg-blue-50 text-primary" : "text-muted hover:bg-slate-50 hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
-      </Sheet>
     </header>
   );
 }

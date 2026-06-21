@@ -8,6 +8,7 @@ export { Form } from "./Form";
 export { Input } from "./Input";
 export { LoadingState } from "./LoadingState";
 export { PageHeader } from "./PageHeader";
+export { ProgressBar } from "./ProgressBar";
 export { Select } from "./Select";
 export { Sheet } from "./Sheet";
 export { Table } from "./Table";
