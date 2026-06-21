@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarDays, CreditCard, Plus, ReceiptText, Search, UserRound, X } from "lucide-react";
+import { CalendarDays, CreditCard, Pencil, Plus, ReceiptText, Search, UserRound, X } from "lucide-react";
 import {
   ActiveFilterChips,
   countActiveTransactionFilters,
@@ -19,6 +19,7 @@ export function ExpensesPage({
   paymentSources,
   members,
   onAddExpense,
+  onEditExpense,
 }) {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [draftFilters, setDraftFilters] = React.useState(filters);
@@ -139,7 +140,32 @@ export function ExpensesPage({
                 { key: "paymentSourceName", header: "Source", width: "160px" },
                 { key: "addedBy", header: "Member", width: "140px" },
                 { key: "description", header: "Description", wrap: true, render: (row) => row.description || "No description" },
-                { key: "amount", header: "Amount", width: "120px", render: (row) => <span className="font-bold">{formatMoney(row.amount, currencyCode)}</span> },
+                {
+                  key: "amount",
+                  header: "Amount",
+                  width: "120px",
+                  align: "right",
+                  render: (row) => <span className="block text-right font-bold tabular-nums">{formatMoney(row.amount, currencyCode)}</span>,
+                },
+                {
+                  key: "actions",
+                  header: "",
+                  width: "56px",
+                  align: "right",
+                  render: (row) => (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-muted transition hover:border-slate-300 hover:bg-slate-50 hover:text-foreground"
+                        onClick={() => onEditExpense(row)}
+                        aria-label={`Edit ${row.description || row.categoryName || "transaction"}`}
+                        title="Edit transaction"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ),
+                },
               ]}
               rows={visibleExpenses}
               getKey={(row) => row.id}
@@ -147,7 +173,7 @@ export function ExpensesPage({
           </div>
           <div className="grid gap-3 md:hidden">
             {visibleExpenses.map((expense) => (
-              <MobileExpenseCard key={expense.id} expense={expense} currencyCode={currencyCode} />
+              <MobileExpenseCard key={expense.id} expense={expense} currencyCode={currencyCode} onEditExpense={onEditExpense} />
             ))}
           </div>
         </>
@@ -191,7 +217,7 @@ function TransactionMetric({ title, value, description, icon: Icon, className = 
   );
 }
 
-function MobileExpenseCard({ expense, currencyCode }) {
+function MobileExpenseCard({ expense, currencyCode, onEditExpense }) {
   return (
     <Card className="p-4">
       <CardHeader className="mb-3">
@@ -199,9 +225,19 @@ function MobileExpenseCard({ expense, currencyCode }) {
           <CardTitle className="truncate text-base">{expense.categoryName}</CardTitle>
           <CardDescription>{formatDate(expense.expenseDate)}</CardDescription>
         </div>
-        <p className="shrink-0 font-display text-lg font-bold tracking-tight text-foreground">
-          {formatMoney(expense.amount, currencyCode)}
-        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-muted transition hover:border-slate-300 hover:bg-slate-50 hover:text-foreground"
+            onClick={() => onEditExpense(expense)}
+            aria-label={`Edit ${expense.description || expense.categoryName || "transaction"}`}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <p className="font-display text-lg font-bold tracking-tight text-foreground">
+            {formatMoney(expense.amount, currencyCode)}
+          </p>
+        </div>
       </CardHeader>
       <div className="grid gap-3 text-sm">
         <div className="flex items-center gap-2 text-muted">

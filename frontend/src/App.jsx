@@ -101,6 +101,8 @@ function App() {
   const [accountPeriod, setAccountPeriod] = useState(defaultPresetPeriod);
   const [transactionFilters, setTransactionFilters] = useState({ ...defaultPresetPeriod, categoryId: "", paymentSourceId: "", memberId: "" });
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [editExpenseDialogOpen, setEditExpenseDialogOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
   const [totalBudgetDialogOpen, setTotalBudgetDialogOpen] = useState(false);
   const [totalBudgetSaving, setTotalBudgetSaving] = useState(false);
 
@@ -112,6 +114,16 @@ function App() {
   const budgetForm = useForm({ resolver: zodResolver(budgetSchema), defaultValues: { categoryId: "", limitAmount: "" } });
   const totalBudgetForm = useForm({ resolver: zodResolver(totalBudgetSchema), defaultValues: { amount: "" } });
   const expenseForm = useForm({
+    resolver: zodResolver(expenseSchema),
+    defaultValues: {
+      categoryId: "",
+      paymentSourceId: "",
+      amount: "",
+      expenseDate: new Date().toISOString().slice(0, 10),
+      description: "",
+    },
+  });
+  const editExpenseForm = useForm({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       categoryId: "",
@@ -136,6 +148,7 @@ function App() {
   const currencyCode = dashboard?.currencyCode ?? activeWorkspace?.currencyCode ?? "GBP";
   const currencySymbol = getCurrencySymbol(currencyCode);
   const selectedPaymentSourceId = expenseForm.watch("paymentSourceId");
+  const selectedEditPaymentSourceId = editExpenseForm.watch("paymentSourceId");
 
   async function api(path, options = {}) {
     let response;
@@ -668,6 +681,36 @@ function App() {
     }
   }
 
+  function openEditExpense(expense) {
+    const matchedCategory = categories.find((category) => category.name === expense.categoryName);
+    const matchedPaymentSource = paymentSources.find((source) => source.name === expense.paymentSourceName);
+    setEditingExpense(expense);
+    editExpenseForm.reset({
+      categoryId: expense.categoryId ?? matchedCategory?.id ?? "",
+      paymentSourceId: expense.paymentSourceId ?? matchedPaymentSource?.id ?? "",
+      amount: expense.amount ?? "",
+      expenseDate: expense.expenseDate ?? new Date().toISOString().slice(0, 10),
+      description: expense.description ?? "",
+    });
+    setEditExpenseDialogOpen(true);
+  }
+
+  async function updateExpense(values) {
+    if (!workspaceId || !editingExpense?.id) return;
+    try {
+      await api(`/workspaces/${workspaceId}/expenses/${editingExpense.id}`, {
+        method: "PUT",
+        body: JSON.stringify(values),
+      });
+      setEditExpenseDialogOpen(false);
+      setEditingExpense(null);
+      await loadWorkspaceData();
+      toast.success("Expense updated");
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
   async function updateTotalBudget(values) {
     if (!workspaceId) return;
     setTotalBudgetSaving(true);
@@ -752,7 +795,7 @@ function App() {
   if (!token) {
     return (
       <>
-        <Toaster richColors position="top-right" />
+        <Toaster richColors closeButton position="top-right" />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<AuthScreen mode={mode} setMode={setMode} authForm={authForm} loading={loading} onSubmit={submitAuth} />} />
@@ -766,7 +809,7 @@ function App() {
 
   return (
     <>
-      <Toaster richColors position="top-right" />
+      <Toaster richColors closeButton position="top-right" />
       <AppLayout
         user={user}
         workspaces={workspaces}
@@ -846,6 +889,7 @@ function App() {
                 paymentSources={paymentSources}
                 members={members}
                 onAddExpense={() => setExpenseDialogOpen(true)}
+                onEditExpense={openEditExpense}
               />
             }
           />
@@ -945,6 +989,106 @@ function App() {
             </div>
           </Form>
           </Dialog>
+
+        <Dialog
+          title="Edit Expense"
+          description="Update the amount, description, category, date, or payment source."
+          open={editExpenseDialogOpen}
+          onOpenChange={(open) => {
+            setEditExpenseDialogOpen(open);
+            if (!open) setEditingExpense(null);
+          }}
+          contentClassName="max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-dvh max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 max-sm:p-4"
+        >
+          <Form onSubmit={editExpenseForm.handleSubmit(updateExpense)} className="gap-5 max-sm:min-h-[calc(100dvh-7.5rem)] max-sm:pb-2">
+            <div className="rounded-3xl border border-border bg-slate-50 p-4 text-center sm:p-5">
+              <label className="mx-auto flex max-w-xs items-center justify-center gap-2">
+                <span className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{currencySymbol}</span>
+                <input
+                  className="min-w-0 flex-1 bg-transparent text-center font-display text-4xl font-bold tracking-tight text-foreground outline-none placeholder:text-slate-300 sm:text-5xl"
+                  placeholder="0.00"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  aria-label={`Amount in ${currencyCode}`}
+                  {...editExpenseForm.register("amount")}
+                />
+              </label>
+              {editExpenseForm.formState.errors.amount?.message && (
+                <p className="mt-2 text-xs font-semibold text-danger">{editExpenseForm.formState.errors.amount.message}</p>
+              )}
+              <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-2 text-xs font-bold text-muted shadow-sm">
+                <Landmark className="h-3.5 w-3.5" />
+                {activeWorkspace?.name ?? "Workspace"} • {currencyCode}
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <Input label="Description" placeholder="What was this for?" {...editExpenseForm.register("description")} />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select label="Category" error={editExpenseForm.formState.errors.categoryId?.message} {...editExpenseForm.register("categoryId")}>
+                <option value="">Choose category</option>
+                {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </Select>
+              <Input label="Date" type="date" error={editExpenseForm.formState.errors.expenseDate?.message} {...editExpenseForm.register("expenseDate")} />
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <WalletCards className="h-4 w-4 text-muted" />
+                Payment source
+              </div>
+              {editExpenseForm.formState.errors.paymentSourceId?.message && (
+                <p className="mb-2 text-xs font-semibold text-danger">{editExpenseForm.formState.errors.paymentSourceId.message}</p>
+              )}
+              {paymentSources.length > 6 && (
+                <p className="mb-2 text-xs font-semibold text-muted">
+                  Showing {paymentSources.length} sources. Scroll inside this list to choose one.
+                </p>
+              )}
+              <div className={`grid gap-3 sm:grid-cols-2 ${paymentSources.length > 6 ? "max-h-72 overflow-y-auto rounded-2xl border border-border bg-slate-50 p-2" : ""}`}>
+                {paymentSources.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border bg-slate-50 p-4 text-sm font-semibold text-muted sm:col-span-2">
+                    Add a payment source before saving expenses.
+                  </div>
+                ) : paymentSources.map((source) => {
+                  const selected = selectedEditPaymentSourceId === source.id;
+                  return (
+                    <button
+                      key={source.id}
+                      type="button"
+                      className={`flex min-h-20 items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-border bg-white text-foreground hover:bg-slate-50"}`}
+                      onClick={() => editExpenseForm.setValue("paymentSourceId", source.id, { shouldDirty: true, shouldValidate: true })}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${selected ? "bg-white/10 text-white" : "bg-slate-100 text-slate-950"}`}>
+                          {source.type?.includes("CARD") ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-bold">{source.name}</span>
+                          <span className={`mt-0.5 block truncate text-xs font-semibold ${selected ? "text-slate-300" : "text-muted"}`}>{source.type ?? "Payment source"}</span>
+                        </span>
+                      </span>
+                      {selected && <CheckCircle2 className="h-5 w-5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-3 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:mt-auto max-sm:border-t max-sm:border-border max-sm:bg-white max-sm:px-4 max-sm:py-3">
+              <Button type="button" variant="secondary" className="h-12 flex-1 rounded-2xl" onClick={() => setEditExpenseDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="h-12 flex-1 rounded-2xl bg-emerald-700 hover:bg-emerald-800">
+                <ReceiptText className="h-4 w-4" />
+                Save
+              </Button>
+            </div>
+          </Form>
+        </Dialog>
 
         <Dialog title="Edit Total Budget" description="Set the total monthly budget for the selected workspace." open={totalBudgetDialogOpen} onOpenChange={setTotalBudgetDialogOpen}>
           <Form onSubmit={totalBudgetForm.handleSubmit(updateTotalBudget)}>

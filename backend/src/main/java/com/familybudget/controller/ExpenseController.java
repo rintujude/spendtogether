@@ -2,6 +2,7 @@ package com.familybudget.controller;
 
 import com.familybudget.dto.AppDtos.CreateExpenseRequest;
 import com.familybudget.entity.Expense;
+import com.familybudget.entity.WorkspaceMember;
 import com.familybudget.repository.BudgetCategoryRepository;
 import com.familybudget.repository.ExpenseRepository;
 import com.familybudget.repository.PaymentSourceRepository;
@@ -20,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -101,22 +103,8 @@ public class ExpenseController {
     ) {
         var workspace = accessService.requireExpenseContributor(workspaceId, principal);
         var user = accessService.requireCurrentUser(principal);
-        var category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
-        var paymentSource = paymentSourceRepository.findById(request.paymentSourceId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment source not found"));
-        if (!category.getWorkspace().getId().equals(workspaceId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category does not belong to this workspace");
-        }
-        if (!paymentSource.getWorkspace().getId().equals(workspaceId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment source does not belong to this workspace");
-        }
-        if (!category.isActive()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is not active");
-        }
-        if (!paymentSource.isActive()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment source is not active");
-        }
+        var category = requireActiveCategory(workspaceId, request.categoryId());
+        var paymentSource = requireActivePaymentSource(workspaceId, request.paymentSourceId());
 
         Expense expense = new Expense();
         expense.setWorkspace(workspace);
@@ -133,12 +121,75 @@ public class ExpenseController {
         return ExpenseResponse.from(saved);
     }
 
+    @PutMapping("/{expenseId}")
+    public ExpenseResponse update(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID expenseId,
+            @Valid @RequestBody CreateExpenseRequest request,
+            Principal principal
+    ) {
+        WorkspaceMember member = accessService.requireActiveMembership(workspaceId, principal);
+        if (member.getRole() == WorkspaceMember.Role.VIEWER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Viewers cannot modify expenses");
+        }
+
+        Expense expense = expenseRepository.findById(expenseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
+        if (!expense.getWorkspace().getId().equals(workspaceId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Expense does not belong to this workspace");
+        }
+        if (member.getRole() == WorkspaceMember.Role.CONTRIBUTOR
+                && !expense.getAddedBy().getId().equals(member.getUser().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Contributors can only edit their own expenses");
+        }
+
+        var category = requireActiveCategory(workspaceId, request.categoryId());
+        var paymentSource = requireActivePaymentSource(workspaceId, request.paymentSourceId());
+        expense.setCategory(category);
+        expense.setPaymentSource(paymentSource);
+        expense.setAmount(request.amount());
+        expense.setExpenseDate(request.expenseDate());
+        expense.setDescription(request.description());
+
+        Expense saved = expenseRepository.save(expense);
+        eventPublisher.publish(workspaceId, "EXPENSE_UPDATED", "EXPENSE", saved.getId());
+        log.info("Expense updated workspaceId={} expenseId={} amount={} userId={}", workspaceId, saved.getId(), saved.getAmount(), member.getUser().getId());
+        return ExpenseResponse.from(saved);
+    }
+
+    private com.familybudget.entity.BudgetCategory requireActiveCategory(UUID workspaceId, UUID categoryId) {
+        var category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+        if (!category.getWorkspace().getId().equals(workspaceId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category does not belong to this workspace");
+        }
+        if (!category.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is not active");
+        }
+        return category;
+    }
+
+    private com.familybudget.entity.PaymentSource requireActivePaymentSource(UUID workspaceId, UUID paymentSourceId) {
+        var paymentSource = paymentSourceRepository.findById(paymentSourceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment source not found"));
+        if (!paymentSource.getWorkspace().getId().equals(workspaceId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment source does not belong to this workspace");
+        }
+        if (!paymentSource.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment source is not active");
+        }
+        return paymentSource;
+    }
+
     public record ExpenseResponse(
             UUID id,
             BigDecimal amount,
             LocalDate expenseDate,
+            UUID categoryId,
             String categoryName,
+            UUID paymentSourceId,
             String paymentSourceName,
+            UUID addedByUserId,
             String addedBy,
             String description
     ) {
@@ -147,8 +198,11 @@ public class ExpenseController {
                     expense.getId(),
                     expense.getAmount(),
                     expense.getExpenseDate(),
+                    expense.getCategory().getId(),
                     expense.getCategory().getName(),
+                    expense.getPaymentSource().getId(),
                     expense.getPaymentSource().getName(),
+                    expense.getAddedBy().getId(),
                     expense.getAddedBy().getFullName(),
                     expense.getDescription()
             );

@@ -10,7 +10,7 @@ export function Table({ columns, rows, getKey, minWidth = "720px", className = "
             {columns.map((column) => (
               <th
                 key={column.key}
-                className="h-11 whitespace-nowrap px-4 text-left text-xs font-bold uppercase tracking-wide text-muted"
+                className={cn("h-11 whitespace-nowrap px-4 text-xs font-bold uppercase tracking-wide text-muted", alignClass(column.align))}
                 style={{ width: column.width }}
               >
                 {column.header}
@@ -24,7 +24,12 @@ export function Table({ columns, rows, getKey, minWidth = "720px", className = "
               {columns.map((column) => (
                 <td
                   key={column.key}
-                  className={column.wrap ? "h-14 whitespace-normal break-words px-4 py-3 align-middle font-medium text-foreground" : "h-14 whitespace-nowrap px-4 py-3 align-middle font-medium text-foreground"}
+                  className={cn(
+                    column.wrap
+                      ? "h-14 whitespace-normal break-words px-4 py-3 align-middle font-medium text-foreground"
+                      : "h-14 whitespace-nowrap px-4 py-3 align-middle font-medium text-foreground",
+                    alignClass(column.align)
+                  )}
                   style={{ width: column.width }}
                 >
                   {column.render ? column.render(row) : row[column.key]}
@@ -36,4 +41,10 @@ export function Table({ columns, rows, getKey, minWidth = "720px", className = "
       </table>
     </div>
   );
+}
+
+function alignClass(align) {
+  if (align === "right") return "text-right";
+  if (align === "center") return "text-center";
+  return "text-left";
 }
