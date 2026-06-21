@@ -1,5 +1,5 @@
 import React from "react";
-import { Bell, CheckCheck, ChevronDown, Inbox, LogOut, MailPlus, Search, Trash2, UserCircle, X } from "lucide-react";
+import { Bell, CheckCheck, ChevronDown, Inbox, LogOut, MailPlus, Trash2, UserCircle, X } from "lucide-react";
 import {
   Badge,
   Button,
@@ -33,7 +33,7 @@ export function Topbar({
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-xl sm:px-5 md:px-8 md:py-4">
       <div className="mx-auto w-full max-w-[1200px]">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-end justify-between gap-3">
           <div className="grid min-w-0 shrink-0 grow basis-[min(56vw,300px)] gap-1.5 md:basis-72 md:grow-0">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Workspace</p>
             <div className="flex min-w-0 items-center gap-2">
@@ -50,20 +50,13 @@ export function Topbar({
                 ))}
               </Select>
               {activeWorkspace && (
-                <Badge className="hidden shrink-0 sm:inline-flex" title={currencyLabel(activeWorkspace.currencyCode)}>
+                <Badge className="hidden h-10 shrink-0 px-3 sm:inline-flex" title={currencyLabel(activeWorkspace.currencyCode)}>
                   {activeWorkspace.currencyCode || "GBP"}
                 </Badge>
               )}
             </div>
           </div>
-          <label className="hidden min-w-0 flex-1 items-center gap-2 rounded-2xl border border-border bg-white px-3 shadow-sm md:flex md:max-w-md">
-            <Search className="h-4 w-4 shrink-0 text-muted" />
-            <input
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-slate-400"
-              placeholder="Search SpendTogether"
-              aria-label="Search SpendTogether"
-            />
-          </label>
+          <div className="hidden min-w-0 flex-1 md:block" />
           <div className="flex shrink-0 items-center gap-2">
             <DropdownMenu onOpenChange={(open) => open && onLoadNotifications?.()}>
               <DropdownMenuTrigger asChild>

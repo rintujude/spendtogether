@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarDays, CreditCard, Plus, ReceiptText, UserRound } from "lucide-react";
+import { CalendarDays, CreditCard, Plus, ReceiptText, Search, UserRound, X } from "lucide-react";
 import {
   ActiveFilterChips,
   countActiveTransactionFilters,
@@ -22,6 +22,7 @@ export function ExpensesPage({
 }) {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [draftFilters, setDraftFilters] = React.useState(filters);
+  const [searchText, setSearchText] = React.useState("");
 
   React.useEffect(() => {
     if (!drawerOpen) setDraftFilters(filters);
@@ -49,6 +50,10 @@ export function ExpensesPage({
   const totalSpent = expenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0);
   const latestExpense = expenses[0];
   const activeFilterCount = countActiveTransactionFilters(filters);
+  const searchQuery = searchText.trim().toLowerCase();
+  const visibleExpenses = searchQuery
+    ? expenses.filter((expense) => transactionMatchesSearch(expense, searchQuery, currencyCode))
+    : expenses;
 
   return (
     <>
@@ -80,6 +85,26 @@ export function ExpensesPage({
       </section>
 
       <ActiveFilterChips filters={filters} categories={categories} paymentSources={paymentSources} members={members} onRemove={removeChip} />
+      <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-border bg-white px-3 shadow-sm">
+        <Search className="h-4 w-4 shrink-0 text-muted" />
+        <input
+          className="h-11 min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-slate-400"
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+          placeholder="Search transactions..."
+          aria-label="Search transactions"
+        />
+        {searchText && (
+          <button
+            type="button"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-slate-100 hover:text-foreground"
+            onClick={() => setSearchText("")}
+            aria-label="Clear transaction search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
       <TransactionFilterDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
@@ -97,6 +122,12 @@ export function ExpensesPage({
           description="Adjust the filters or add a category, payment source, and transaction."
           action={<Button type="button" onClick={onAddExpense}><Plus className="h-4 w-4" />Add Transaction</Button>}
         />
+      ) : visibleExpenses.length === 0 ? (
+        <EmptyState
+          title="No matching transactions"
+          description="Try another search term or clear the transaction search."
+          action={<Button type="button" variant="secondary" onClick={() => setSearchText("")}>Clear search</Button>}
+        />
       ) : (
         <>
           <div className="hidden md:block">
@@ -110,12 +141,12 @@ export function ExpensesPage({
                 { key: "description", header: "Description", wrap: true, render: (row) => row.description || "No description" },
                 { key: "amount", header: "Amount", width: "120px", render: (row) => <span className="font-bold">{formatMoney(row.amount, currencyCode)}</span> },
               ]}
-              rows={expenses}
+              rows={visibleExpenses}
               getKey={(row) => row.id}
             />
           </div>
           <div className="grid gap-3 md:hidden">
-            {expenses.map((expense) => (
+            {visibleExpenses.map((expense) => (
               <MobileExpenseCard key={expense.id} expense={expense} currencyCode={currencyCode} />
             ))}
           </div>
@@ -123,6 +154,24 @@ export function ExpensesPage({
       )}
     </>
   );
+}
+
+function transactionMatchesSearch(expense, query, currencyCode) {
+  const searchable = [
+    expense.description,
+    expense.categoryName,
+    expense.paymentSourceName,
+    expense.addedBy,
+    expense.expenseDate,
+    formatDate(expense.expenseDate),
+    String(expense.amount ?? ""),
+    formatMoney(expense.amount, currencyCode),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return searchable.includes(query);
 }
 
 function TransactionMetric({ title, value, description, icon: Icon, className = "" }) {
