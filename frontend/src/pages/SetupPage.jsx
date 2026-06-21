@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { CreditCard, FolderKanban, Pencil, Plus, Settings, Trash2, UserPlus, UsersRound, WalletCards } from "lucide-react";
 import {
   Badge,
   Button,
@@ -76,6 +77,13 @@ export function SetupPage({
         description="Manage workspace details, categories, payment sources, and members from one place."
       />
 
+      <section className="grid gap-4 md:grid-cols-4">
+        <WorkspaceStat title="Workspace" value={activeWorkspace?.name ?? "Not created"} description={activeWorkspace ? `${activeWorkspace.currencyCode || "GBP"} base currency` : "Create one to begin"} icon={Settings} />
+        <WorkspaceStat title="Categories" value={categories.length.toString()} description="Income and expense groups" icon={FolderKanban} />
+        <WorkspaceStat title="Sources" value={paymentSources.length.toString()} description="Cash, bank, cards, wallets" icon={WalletCards} />
+        <WorkspaceStat title="Members" value={members.length.toString()} description="Owners, contributors, viewers" icon={UsersRound} />
+      </section>
+
       <Tabs defaultValue="details" className="grid gap-5">
         <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="details">Workspace</TabsTrigger>
@@ -85,51 +93,61 @@ export function SetupPage({
         </TabsList>
 
         <TabsContent value="details" className="grid gap-5">
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Create workspace</CardTitle>
-                <CardDescription>Create a workspace and choose its base currency.</CardDescription>
-              </div>
-              {activeWorkspace && <Badge tone="success">{activeWorkspace.currencyCode || "GBP"} selected</Badge>}
-            </CardHeader>
-            <Form onSubmit={workspaceForm.handleSubmit(onCreateWorkspace)} className="grid gap-4 md:grid-cols-[1fr_260px_auto] md:items-end">
-              <Input label="Workspace name" placeholder="Trip budget" error={workspaceForm.formState.errors.name?.message} {...workspaceForm.register("name")} />
-              <Select label="Currency" {...workspaceForm.register("currencyCode")}>
-                {currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.code} - {currency.label}</option>)}
-              </Select>
-              <Button type="submit">Create workspace</Button>
-            </Form>
+          <Card className="overflow-hidden p-0">
+            <div className="border-b border-border bg-slate-950 p-5 text-white sm:p-6">
+              <p className="text-sm font-semibold text-slate-300">Workspace details</p>
+              <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">{activeWorkspace?.name ?? "Create your first workspace"}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">Choose a workspace name and base currency for shared budget tracking.</p>
+            </div>
+            <div className="grid gap-5 p-5 sm:p-6">
+              {activeWorkspace && (
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone="success">{activeWorkspace.currencyCode || "GBP"} selected</Badge>
+                  <Badge>Shared budget workspace</Badge>
+                </div>
+              )}
+              <Form onSubmit={workspaceForm.handleSubmit(onCreateWorkspace)} className="grid gap-4 md:grid-cols-[1fr_260px_auto] md:items-end">
+                <Input label="Workspace name" placeholder="Trip budget" error={workspaceForm.formState.errors.name?.message} {...workspaceForm.register("name")} />
+                <Select label="Currency" {...workspaceForm.register("currencyCode")}>
+                  {currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.code} - {currency.label}</option>)}
+                </Select>
+                <Button type="submit"><Plus className="h-4 w-4" />Create workspace</Button>
+              </Form>
+            </div>
           </Card>
 
           {activeWorkspace ? (
             <Card>
-              <CardHeader>
-                <div>
+            <CardHeader>
+              <div>
                   <CardTitle>Edit workspace</CardTitle>
                   <CardDescription>Update the workspace name and selected base currency.</CardDescription>
-                </div>
+              </div>
                 <Badge tone="warning">Use caution changing currency after transactions exist</Badge>
-              </CardHeader>
+            </CardHeader>
               <Form onSubmit={editWorkspaceForm.handleSubmit(onUpdateWorkspace)} className="grid gap-4 md:grid-cols-[1fr_260px_auto] md:items-end">
                 <Input label="Workspace name" error={editWorkspaceForm.formState.errors.name?.message} {...editWorkspaceForm.register("name")} />
                 <Select label="Currency" error={editWorkspaceForm.formState.errors.currencyCode?.message} {...editWorkspaceForm.register("currencyCode")}>
-                  {currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.code} - {currency.label}</option>)}
-                </Select>
-                <Button type="submit">Save changes</Button>
-              </Form>
-            </Card>
+                {currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.code} - {currency.label}</option>)}
+              </Select>
+                <Button type="submit"><Pencil className="h-4 w-4" />Save changes</Button>
+            </Form>
+          </Card>
           ) : (
-            <Card>
-              <EmptyState title="Create a workspace in SpendTogether" description="Workspace setup unlocks categories, payment sources, budgets, members, and expenses." />
-            </Card>
+            <EmptyState title="Create a workspace in SpendTogether" description="Workspace setup unlocks categories, payment sources, budgets, members, and expenses." />
           )}
         </TabsContent>
 
         <TabsContent value="categories" className="grid gap-5">
           <Card>
-            <CardTitle>Add category</CardTitle>
-            <Form onSubmit={categoryForm.handleSubmit(onCreateCategory)} className="mt-5 grid gap-4 md:grid-cols-[1fr_160px_180px_auto] md:items-end">
+            <CardHeader>
+              <div>
+                <CardTitle>Add category</CardTitle>
+                <CardDescription>Create a category and monthly budget together.</CardDescription>
+              </div>
+              <Badge>{categories.length} active</Badge>
+            </CardHeader>
+            <Form onSubmit={categoryForm.handleSubmit(onCreateCategory)} className="grid gap-4 md:grid-cols-[1fr_160px_180px_auto] md:items-end">
               <Input label="Category name" placeholder="Groceries" error={categoryForm.formState.errors.name?.message} {...categoryForm.register("name")} />
               <Select label="Type" error={categoryForm.formState.errors.categoryType?.message} {...categoryForm.register("categoryType")}>
                 <option value="EXPENSE">Expense</option>
@@ -143,60 +161,37 @@ export function SetupPage({
                 error={categoryForm.formState.errors.monthlyBudgetAmount?.message}
                 {...categoryForm.register("monthlyBudgetAmount")}
               />
-              <Button type="submit" disabled={!activeWorkspace}>Add category</Button>
+              <Button type="submit" disabled={!activeWorkspace}><Plus className="h-4 w-4" />Add category</Button>
             </Form>
           </Card>
           {categories.length === 0 ? (
             <EmptyState title="No categories yet in SpendTogether" description="Add income or expense categories for this workspace." />
           ) : (
-            <Table
-              minWidth="420px"
-              columns={[
-                { key: "name", header: "Name" },
-                { key: "categoryType", header: "Type", width: "110px" },
-                { key: "monthlyBudgetAmount", header: "Monthly Budget", width: "150px", render: (row) => formatMoney(row.monthlyBudgetAmount, currencyCode) },
-                { key: "actions", header: "Actions", width: "180px", render: (row) => (
-                  <div className="flex gap-2">
-                    <Button type="button" variant="secondary" onClick={() => setEditingCategory(row)}>Edit</Button>
-                    <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this category?") && onDeactivateCategory(row.id)}>Deactivate</Button>
-                  </div>
-                ) },
-              ]}
-              rows={categories}
-              getKey={(row) => row.id}
-            />
+            <ResponsiveCategoryList categories={categories} currencyCode={currencyCode} onEdit={setEditingCategory} onDeactivate={onDeactivateCategory} />
           )}
         </TabsContent>
 
         <TabsContent value="sources" className="grid gap-5">
           <Card>
-            <CardTitle>Add payment source</CardTitle>
-            <Form onSubmit={sourceForm.handleSubmit(onCreatePaymentSource)} className="mt-5 grid gap-4 md:grid-cols-[1fr_220px_auto] md:items-end">
+            <CardHeader>
+              <div>
+                <CardTitle>Add payment source</CardTitle>
+                <CardDescription>Add the accounts and wallets used for workspace spending.</CardDescription>
+              </div>
+              <Badge>{paymentSources.length} active</Badge>
+            </CardHeader>
+            <Form onSubmit={sourceForm.handleSubmit(onCreatePaymentSource)} className="grid gap-4 md:grid-cols-[1fr_220px_auto] md:items-end">
               <Input label="Source name" placeholder="Cash" error={sourceForm.formState.errors.name?.message} {...sourceForm.register("name")} />
               <Select label="Type" {...sourceForm.register("type")}>
                 {paymentSourceTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </Select>
-              <Button type="submit" disabled={!activeWorkspace}>Add source</Button>
+              <Button type="submit" disabled={!activeWorkspace}><Plus className="h-4 w-4" />Add source</Button>
             </Form>
           </Card>
           {paymentSources.length === 0 ? (
             <EmptyState title="No payment sources yet in SpendTogether" description="Add cash, bank, cards, or online wallets." />
           ) : (
-            <Table
-              minWidth="460px"
-              columns={[
-                { key: "name", header: "Name" },
-                { key: "type", header: "Type", width: "150px" },
-                { key: "actions", header: "Actions", width: "180px", render: (row) => (
-                  <div className="flex gap-2">
-                    <Button type="button" variant="secondary" onClick={() => setEditingSource(row)}>Edit</Button>
-                    <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this payment source?") && onDeactivatePaymentSource(row.id)}>Deactivate</Button>
-                  </div>
-                ) },
-              ]}
-              rows={paymentSources}
-              getKey={(row) => row.id}
-            />
+            <ResponsiveSourceList sources={paymentSources} onEdit={setEditingSource} onDeactivate={onDeactivatePaymentSource} />
           )}
         </TabsContent>
 
@@ -207,7 +202,7 @@ export function SetupPage({
                 <CardTitle>Members</CardTitle>
                 <CardDescription>Manage active members and pending invitations for this workspace.</CardDescription>
               </div>
-              <Button type="button" onClick={() => setInviteOpen(true)} disabled={!activeWorkspace}>Invite member</Button>
+              <Button type="button" onClick={() => setInviteOpen(true)} disabled={!activeWorkspace}><UserPlus className="h-4 w-4" />Invite member</Button>
             </CardHeader>
             {members.length === 0 ? (
               <EmptyState title="No members yet in SpendTogether" description="Invite contributors or viewers to collaborate in this workspace." />
@@ -250,6 +245,108 @@ export function SetupPage({
       <EditCategoryDialog category={editingCategory} currencyCode={currencyCode} onClose={() => setEditingCategory(null)} onSave={onUpdateCategory} />
       <EditSourceDialog source={editingSource} onClose={() => setEditingSource(null)} onSave={onUpdatePaymentSource} />
       <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} onInviteMember={onInviteMember} />
+    </>
+  );
+}
+
+function WorkspaceStat({ title, value, description, icon: Icon }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-muted">{title}</p>
+          <p className="mt-2 truncate font-display text-xl font-bold tracking-tight text-foreground">{value}</p>
+          <p className="mt-1 truncate text-xs font-semibold text-muted">{description}</p>
+        </div>
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-950">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ResponsiveCategoryList({ categories, currencyCode, onEdit, onDeactivate }) {
+  return (
+    <>
+      <div className="hidden md:block">
+        <Table
+          minWidth="560px"
+          columns={[
+            { key: "name", header: "Name" },
+            { key: "categoryType", header: "Type", width: "120px", render: (row) => <Badge>{formatCategoryType(row.categoryType)}</Badge> },
+            { key: "monthlyBudgetAmount", header: "Monthly Budget", width: "170px", render: (row) => <span className="font-bold">{formatMoney(row.monthlyBudgetAmount, currencyCode)}</span> },
+            { key: "actions", header: "Actions", width: "210px", render: (row) => (
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={() => onEdit(row)}><Pencil className="h-4 w-4" />Edit</Button>
+                <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this category?") && onDeactivate(row.id)}><Trash2 className="h-4 w-4" />Deactivate</Button>
+              </div>
+            ) },
+          ]}
+          rows={categories}
+          getKey={(row) => row.id}
+        />
+      </div>
+      <div className="grid gap-3 md:hidden">
+        {categories.map((category) => (
+          <Card key={category.id} className="p-4">
+            <CardHeader className="mb-3">
+              <div className="min-w-0">
+                <CardTitle className="truncate text-base">{category.name}</CardTitle>
+                <CardDescription>{formatCategoryType(category.categoryType)}</CardDescription>
+              </div>
+              <p className="shrink-0 font-display text-lg font-bold tracking-tight text-foreground">{formatMoney(category.monthlyBudgetAmount, currencyCode)}</p>
+            </CardHeader>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={() => onEdit(category)}><Pencil className="h-4 w-4" />Edit</Button>
+              <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this category?") && onDeactivate(category.id)}><Trash2 className="h-4 w-4" />Deactivate</Button>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ResponsiveSourceList({ sources, onEdit, onDeactivate }) {
+  return (
+    <>
+      <div className="hidden md:block">
+        <Table
+          minWidth="520px"
+          columns={[
+            { key: "name", header: "Name" },
+            { key: "type", header: "Type", width: "170px", render: (row) => <Badge>{formatSourceType(row.type)}</Badge> },
+            { key: "actions", header: "Actions", width: "210px", render: (row) => (
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={() => onEdit(row)}><Pencil className="h-4 w-4" />Edit</Button>
+                <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this payment source?") && onDeactivate(row.id)}><Trash2 className="h-4 w-4" />Deactivate</Button>
+              </div>
+            ) },
+          ]}
+          rows={sources}
+          getKey={(row) => row.id}
+        />
+      </div>
+      <div className="grid gap-3 md:hidden">
+        {sources.map((source) => (
+          <Card key={source.id} className="p-4">
+            <CardHeader className="mb-3">
+              <div className="min-w-0">
+                <CardTitle className="truncate text-base">{source.name}</CardTitle>
+                <CardDescription>{formatSourceType(source.type)}</CardDescription>
+              </div>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-950">
+                <CreditCard className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={() => onEdit(source)}><Pencil className="h-4 w-4" />Edit</Button>
+              <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this payment source?") && onDeactivate(source.id)}><Trash2 className="h-4 w-4" />Deactivate</Button>
+            </div>
+          </Card>
+        ))}
+      </div>
     </>
   );
 }
@@ -361,6 +458,14 @@ function InviteMemberDialog({ open, onOpenChange, onInviteMember }) {
       </Form>
     </Dialog>
   );
+}
+
+function formatCategoryType(value) {
+  return value === "INCOME" ? "Income" : "Expense";
+}
+
+function formatSourceType(value) {
+  return paymentSourceTypes.find(([type]) => type === value)?.[1] ?? value;
 }
 
 function getCurrencySymbol(currencyCode) {
