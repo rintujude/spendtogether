@@ -3,14 +3,15 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import { z } from "zod";
 import { AppLayout, AuthLayout } from "./components/layout";
 import { defaultPresetPeriod, periodQuery } from "./components/filters";
-import { Button, Dialog, Form, Input, PageHeader, Select } from "./components/ui";
+import { Badge, Button, Dialog, Form, Input, PageHeader, Select } from "./components/ui";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
+import { LandingPage } from "./pages/LandingPage";
 import { SetupPage } from "./pages/SetupPage";
 import { useWorkspaceEvents } from "./hooks/useWorkspaceEvents";
 import { queryKeys } from "./lib/queryKeys";
@@ -718,9 +719,11 @@ function App() {
       <>
         <Toaster richColors position="top-right" />
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<AuthScreen mode={mode} setMode={setMode} authForm={authForm} loading={loading} onSubmit={submitAuth} />} />
+          <Route path="/register" element={<AuthScreen mode={mode} setMode={setMode} authForm={authForm} loading={loading} onSubmit={submitAuth} />} />
           <Route path="/invitations/accept" element={<InvitationAcceptScreen />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </>
     );
@@ -859,12 +862,29 @@ function App() {
 }
 
 function AuthScreen({ mode, setMode, authForm, loading, onSubmit }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const targetMode = location.pathname === "/register" ? "register" : "login";
+  const isLogin = mode === "login";
+
+  useEffect(() => {
+    if (mode !== targetMode) {
+      setMode(targetMode);
+      authForm.clearErrors();
+    }
+  }, [authForm, mode, setMode, targetMode]);
+
   return (
     <AuthLayout>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <Badge tone="primary">SpendTogether</Badge>
+        <Link to="/" className="text-sm font-semibold text-muted transition hover:text-foreground">
+          Home
+        </Link>
+      </div>
       <PageHeader
-        eyebrow="SpendTogether"
-        title={mode === "login" ? "Sign in" : "Create account"}
-        description="Use one account to manage shared budget workspaces in SpendTogether."
+        title={isLogin ? "Welcome back" : "Create your account"}
+        description={isLogin ? "Sign in to continue to your shared budget workspace." : "Start a workspace for shared budgeting, expenses, members, and categories."}
       />
       <Form onSubmit={authForm.handleSubmit(onSubmit)} className="mt-6">
         {mode === "register" && (
@@ -872,11 +892,25 @@ function AuthScreen({ mode, setMode, authForm, loading, onSubmit }) {
         )}
         <Input label="Email" type="email" error={authForm.formState.errors.email?.message} {...authForm.register("email")} />
         <Input label="Password" type="password" error={authForm.formState.errors.password?.message} {...authForm.register("password")} />
-        <Button type="submit" disabled={loading}>{loading ? "Please wait" : mode === "login" ? "Sign in" : "Register"}</Button>
+        <Button type="submit" disabled={loading} className="mt-1 w-full">{loading ? "Please wait" : isLogin ? "Sign in" : "Create account"}</Button>
       </Form>
-      <Button type="button" variant="ghost" className="mt-4 w-full" onClick={() => setMode(mode === "login" ? "register" : "login")}>
-        {mode === "login" ? "Need an account? Register" : "Already have an account? Sign in"}
-      </Button>
+      <div className="mt-5 rounded-2xl border border-border bg-slate-50 p-4 text-center">
+        <p className="text-sm font-medium text-muted">
+          {isLogin ? "New to SpendTogether?" : "Already have an account?"}
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-2 w-full"
+          onClick={() => {
+            const nextMode = isLogin ? "register" : "login";
+            setMode(nextMode);
+            navigate(nextMode === "login" ? "/login" : "/register");
+          }}
+        >
+          {isLogin ? "Create an account" : "Sign in instead"}
+        </Button>
+      </div>
     </AuthLayout>
   );
 }

@@ -32,14 +32,31 @@ export function Topbar({
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-xl sm:px-5 md:px-8 md:py-4">
-      <div className="mx-auto grid w-full max-w-[1200px] gap-4">
+      <div className="mx-auto w-full max-w-[1200px]">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">{activeWorkspace?.name ?? "No workspace selected"}</p>
-              <p className="hidden text-xs font-medium text-muted sm:block">Shared budget workspace</p>
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <div className="grid min-w-0 shrink-0 grow-0 basis-[min(52vw,230px)] gap-1.5 sm:basis-64">
+              <p className="text-sm font-medium text-foreground">Workspace</p>
+              <div className="flex min-w-0 items-center gap-2">
+                <Select
+                  aria-label="Workspace"
+                  className="min-w-0 flex-1"
+                  selectClassName="h-10 font-semibold"
+                  value={workspaceId}
+                  onChange={(event) => onWorkspaceChange(event.target.value)}
+                >
+                  <option value="">Select workspace</option>
+                  {workspaces.map((workspace) => (
+                    <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+                  ))}
+                </Select>
+                {activeWorkspace && (
+                  <Badge className="shrink-0" title={currencyLabel(activeWorkspace.currencyCode)}>
+                    {activeWorkspace.currencyCode}
+                  </Badge>
+                )}
+              </div>
             </div>
-            {activeWorkspace && <div className="hidden sm:block"><Badge>{currencyLabel(activeWorkspace.currencyCode)}</Badge></div>}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <DropdownMenu onOpenChange={(open) => open && onLoadNotifications?.()}>
@@ -108,20 +125,6 @@ export function Topbar({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-        <div className="flex items-end gap-3">
-          <Select
-            label="Workspace"
-            className="w-full sm:max-w-sm"
-            value={workspaceId}
-            onChange={(event) => onWorkspaceChange(event.target.value)}
-          >
-            <option value="">Select workspace</option>
-            {workspaces.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-            ))}
-          </Select>
-          {activeWorkspace && <div className="pb-1 sm:hidden"><Badge>{activeWorkspace.currencyCode}</Badge></div>}
         </div>
       </div>
     </header>

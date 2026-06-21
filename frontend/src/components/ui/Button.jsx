@@ -9,12 +9,13 @@ const variants = {
 };
 
 export const Button = React.forwardRef(function Button(
-  { children, variant = "primary", className = "", ...props },
+  { children, variant = "primary", className = "", type = "button", ...props },
   ref,
 ) {
   return (
     <button
       ref={ref}
+      type={type}
       className={cn(
         "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:pointer-events-none disabled:opacity-50",
         variants[variant],
