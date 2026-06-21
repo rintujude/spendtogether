@@ -145,7 +145,7 @@ function App() {
         },
       });
     } catch {
-      throw new Error(`Cannot reach backend through ${apiBaseUrl}. Check that Spring Boot is running on this computer and that the Vite dev server proxy is active.`);
+      throw new Error("We could not connect to SpendTogether right now. Please check your internet connection and try again in a moment.");
     }
 
     if (!response.ok) {

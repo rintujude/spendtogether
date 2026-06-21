@@ -70,7 +70,7 @@ public class CategoryController {
             @Valid @RequestBody CreateCategoryRequest request,
             Principal principal
     ) {
-        var workspace = accessService.requireWorkspaceOwner(workspaceId, principal);
+        var workspace = accessService.requireWorkspaceContributor(workspaceId, principal);
         if (categoryRepository.existsByWorkspaceIdAndNameIgnoreCaseAndActiveTrue(workspaceId, request.name())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Category name already exists");
         }
@@ -95,7 +95,7 @@ public class CategoryController {
             @Valid @RequestBody UpdateCategoryRequest request,
             Principal principal
     ) {
-        accessService.requireWorkspaceOwner(workspaceId, principal);
+        accessService.requireWorkspaceContributor(workspaceId, principal);
         BudgetCategory category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
         if (!category.getWorkspace().getId().equals(workspaceId)) {
@@ -121,7 +121,7 @@ public class CategoryController {
             @PathVariable UUID categoryId,
             Principal principal
     ) {
-        accessService.requireWorkspaceOwner(workspaceId, principal);
+        accessService.requireWorkspaceContributor(workspaceId, principal);
         BudgetCategory category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
         if (!category.getWorkspace().getId().equals(workspaceId)) {

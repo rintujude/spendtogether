@@ -65,7 +65,7 @@ public class BudgetController {
             @Valid @RequestBody RolloverBudgetRequest request,
             Principal principal
     ) {
-        var workspace = accessService.requireWorkspaceOwner(workspaceId, principal);
+        var workspace = accessService.requireWorkspaceContributor(workspaceId, principal);
         int copiedCategoryBudgets = 0;
         boolean copiedTotalBudget = false;
 
@@ -145,7 +145,7 @@ public class BudgetController {
             @Valid @RequestBody UpsertMonthlyBudgetRequest request,
             Principal principal
     ) {
-        var workspace = accessService.requireWorkspaceOwner(workspaceId, principal);
+        var workspace = accessService.requireWorkspaceContributor(workspaceId, principal);
         var category = categoryRepository.findById(request.categoryId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
         if (!category.getWorkspace().getId().equals(workspaceId)) {
@@ -183,7 +183,7 @@ public class BudgetController {
             @Valid @RequestBody UpsertMonthlyBudgetRequest request,
             Principal principal
     ) {
-        accessService.requireWorkspaceOwner(workspaceId, principal);
+        accessService.requireWorkspaceContributor(workspaceId, principal);
         MonthlyBudget budget = budgetRepository.findById(budgetId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Budget not found"));
         if (!budget.getWorkspace().getId().equals(workspaceId)) {
@@ -210,7 +210,7 @@ public class BudgetController {
             @PathVariable UUID budgetId,
             Principal principal
     ) {
-        accessService.requireWorkspaceOwner(workspaceId, principal);
+        accessService.requireWorkspaceContributor(workspaceId, principal);
         MonthlyBudget budget = budgetRepository.findById(budgetId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Budget not found"));
         if (!budget.getWorkspace().getId().equals(workspaceId)) {

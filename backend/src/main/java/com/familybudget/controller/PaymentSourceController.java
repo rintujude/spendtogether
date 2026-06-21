@@ -60,7 +60,7 @@ public class PaymentSourceController {
             @Valid @RequestBody CreatePaymentSourceRequest request,
             Principal principal
     ) {
-        var workspace = accessService.requireWorkspaceOwner(workspaceId, principal);
+        var workspace = accessService.requireWorkspaceContributor(workspaceId, principal);
         if (paymentSourceRepository.existsByWorkspaceIdAndNameIgnoreCaseAndActiveTrue(workspaceId, request.name())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Payment source name already exists");
         }
@@ -82,7 +82,7 @@ public class PaymentSourceController {
             @Valid @RequestBody UpdatePaymentSourceRequest request,
             Principal principal
     ) {
-        accessService.requireWorkspaceOwner(workspaceId, principal);
+        accessService.requireWorkspaceContributor(workspaceId, principal);
         PaymentSource source = paymentSourceRepository.findById(sourceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment source not found"));
         if (!source.getWorkspace().getId().equals(workspaceId)) {
@@ -106,7 +106,7 @@ public class PaymentSourceController {
             @PathVariable UUID sourceId,
             Principal principal
     ) {
-        accessService.requireWorkspaceOwner(workspaceId, principal);
+        accessService.requireWorkspaceContributor(workspaceId, principal);
         PaymentSource source = paymentSourceRepository.findById(sourceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment source not found"));
         if (!source.getWorkspace().getId().equals(workspaceId)) {

@@ -47,7 +47,7 @@ public class TotalBudgetController {
             @Valid @RequestBody UpdateTotalBudgetRequest request,
             Principal principal
     ) {
-        var workspace = accessService.requireWorkspaceOwner(workspaceId, principal);
+        var workspace = accessService.requireWorkspaceContributor(workspaceId, principal);
         var user = accessService.requireCurrentUser(principal);
         LocalDate now = LocalDate.now();
         int budgetYear = year == null ? now.getYear() : year;

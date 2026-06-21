@@ -87,7 +87,7 @@ public class WorkspaceController {
             @Valid @RequestBody UpdateWorkspaceRequest request,
             Principal principal
     ) {
-        Workspace workspace = accessService.requireWorkspaceOwner(workspaceId, principal);
+        Workspace workspace = accessService.requireWorkspaceContributor(workspaceId, principal);
         workspace.setName(request.name());
         workspace.setCurrencyCode(request.currencyCode().toUpperCase());
 

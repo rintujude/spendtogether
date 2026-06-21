@@ -77,4 +77,14 @@ public class WorkspaceAccessService {
         return workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
     }
+
+    public Workspace requireWorkspaceContributor(UUID workspaceId, Principal principal) {
+        WorkspaceMember member = requireActiveMembership(workspaceId, principal);
+        if (member.getRole() == WorkspaceMember.Role.VIEWER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Viewers can only view workspace data");
+        }
+
+        return workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
+    }
 }
