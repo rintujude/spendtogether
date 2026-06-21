@@ -1,6 +1,6 @@
 import React from "react";
-import { ArrowDownRight, ArrowUpRight, CircleDollarSign, Pencil, Plus, RefreshCcw, TrendingUp, WalletCards } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ArrowDownRight, ArrowUpRight, CircleDollarSign, Pencil, Plus, ReceiptText, RefreshCcw, WalletCards } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CardPeriodFilter, periodLabel } from "../components/filters";
 import { Badge, Button, Card, CardDescription, CardHeader, CardTitle, EmptyState, PageHeader, ProgressBar } from "../components/ui";
 import { formatMoney } from "../lib/currencies";
@@ -12,6 +12,7 @@ export function DashboardPage({
   onPeriodChange,
   currencyCode,
   loading,
+  recentExpenses = [],
   onRefresh,
   onAddExpense,
   onEditTotalBudget,
@@ -31,13 +32,13 @@ export function DashboardPage({
   const totalSpent = Number(summary?.totalSpent ?? 0);
   const remainingAmount = Number(summary?.remainingAmount ?? 0);
   const budgetUsedPercentage = totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0;
+  const topCategoryRows = remainingRows.slice(0, 4);
 
   return (
     <>
       <PageHeader
-        eyebrow="SpendTogether"
         title="Dashboard"
-        description="A calm overview of workspace spending, category budgets, and payment sources."
+        description="Monitor shared spending, budget usage, and recent workspace activity."
         actions={
           <div className="flex flex-wrap gap-3">
             <Button type="button" variant="secondary" onClick={onRefresh}>
@@ -54,67 +55,123 @@ export function DashboardPage({
 
       {loading && <div className="rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-muted shadow-sm">Refreshing workspace...</div>}
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.55fr)]">
-        <Card className="overflow-hidden p-0">
-          <div className="bg-slate-950 p-5 text-white sm:p-6">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-300">Workspace summary</p>
-                <h2 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-                  {formatMoney(remainingAmount, currencyCode)} remaining
-                </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                {formatMoney(totalSpent, currencyCode)} spent of {formatMoney(totalBudget, currencyCode)} for {periodLabel(periods.summaryPeriod).toLowerCase()}.
-              </p>
-              </div>
-              <div className="sm:min-w-44">
-                <CardPeriodFilter value={periods.summaryPeriod} onChange={onPeriodChange.summary} />
-              </div>
+      <section className="grid gap-4 md:grid-cols-3">
+        <MetricCard label="Monthly Budget" value={formatMoney(totalBudget, currencyCode)} tone="neutral" icon={WalletCards} onEdit={onEditTotalBudget} />
+        <MetricCard label="Total Spent" value={formatMoney(totalSpent, currencyCode)} tone="warning" icon={ArrowUpRight} />
+        <MetricCard label="Remaining" value={formatMoney(remainingAmount, currencyCode)} tone={remainingAmount < 0 ? "danger" : "success"} icon={ArrowDownRight} highlighted />
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Spending Trend</CardTitle>
+              <CardDescription>Total spend for {periodLabel(periods.trendPeriod)}</CardDescription>
             </div>
-            <div className="mt-6">
-              <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-300">
+            <CardPeriodFilter value={periods.trendPeriod} onChange={onPeriodChange.trend} />
+          </CardHeader>
+          {dailyChartRows.length === 0 ? (
+            <EmptyState title="No daily spending in SpendTogether" description="Add expenses to populate the trend." />
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dailyChartRows} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="spendingTrend" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="5%" stopColor="#0F172A" stopOpacity={0.22} />
+                      <stop offset="95%" stopColor="#0F172A" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(value) => formatMoney(value, currencyCode)} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={82} />
+                  <Tooltip formatter={(value) => formatMoney(value, currencyCode)} cursor={{ stroke: "#CBD5E1" }} />
+                  <Area type="monotone" dataKey="amount" stroke="#0F172A" strokeWidth={3} fill="url(#spendingTrend)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader>
+              <div>
+              <CardTitle>Recent Expenses</CardTitle>
+              <CardDescription>Latest transactions in this workspace.</CardDescription>
+              </div>
+            <Button type="button" variant="secondary" className="h-10 px-3" onClick={onAddExpense}>
+              <Plus className="h-4 w-4" />
+              Add
+            </Button>
+          </CardHeader>
+          {recentExpenses.length === 0 ? (
+            <EmptyState title="No expenses yet" description="Add an expense to see recent activity here." />
+          ) : (
+            <div className="grid gap-3">
+              {recentExpenses.slice(0, 5).map((expense) => (
+                <div key={expense.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-slate-50 p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm">
+                      <ReceiptText className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-foreground">{expense.description || expense.categoryName || "Expense"}</p>
+                      <p className="truncate text-xs font-semibold text-muted">{expense.categoryName ?? "Uncategorised"} • {expense.expenseDate}</p>
+                    </div>
+                  </div>
+                  <p className="shrink-0 text-sm font-bold text-foreground">{formatMoney(expense.amount, currencyCode)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </section>
+
+      <Card className="overflow-hidden p-0">
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-muted">Workspace summary</p>
+                <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
+                  {budgetUsedPercentage.toFixed(0)}% used
+                </h2>
+              </div>
+              <CardPeriodFilter value={periods.summaryPeriod} onChange={onPeriodChange.summary} />
+            </div>
+            <p className="mt-3 text-sm leading-6 text-muted">
+              {formatMoney(totalSpent, currencyCode)} spent of {formatMoney(totalBudget, currencyCode)} for {periodLabel(periods.summaryPeriod).toLowerCase()}.
+            </p>
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between text-xs font-semibold text-muted">
                 <span>Budget used</span>
                 <span>{budgetUsedPercentage.toFixed(0)}%</span>
               </div>
               <ProgressBar value={budgetUsedPercentage} tone={usageTone(budgetUsedPercentage)} />
             </div>
           </div>
-          <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
-            <MetricCard label="Total budget" value={formatMoney(totalBudget, currencyCode)} tone="neutral" icon={WalletCards} onEdit={onEditTotalBudget} compact />
-            <MetricCard label="Total spent" value={formatMoney(totalSpent, currencyCode)} tone="warning" icon={ArrowUpRight} compact />
-            <MetricCard label="Remaining" value={formatMoney(remainingAmount, currencyCode)} tone={remainingAmount < 0 ? "danger" : "success"} icon={ArrowDownRight} compact />
-          </div>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <div>
-            <CardHeader className="mb-4">
-              <div>
-                <CardTitle>Quick actions</CardTitle>
-                <CardDescription>Common budget updates for this workspace.</CardDescription>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {topCategoryRows.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-slate-50 p-4 text-sm font-semibold text-muted sm:col-span-2">
+                Category budget cards will appear after you add categories.
               </div>
-            </CardHeader>
-            <div className="grid gap-3">
-              <Button type="button" onClick={onAddExpense} className="justify-start">
-                <Plus className="h-4 w-4" />
-                Add expense
-              </Button>
-              <Button type="button" variant="secondary" onClick={onEditTotalBudget} className="justify-start">
-                <Pencil className="h-4 w-4" />
-                Edit total budget
-              </Button>
-              <Button type="button" variant="ghost" onClick={onRefresh} className="justify-start">
-                <RefreshCcw className="h-4 w-4" />
-                Refresh dashboard
-              </Button>
-            </div>
+            ) : topCategoryRows.map((row) => (
+              <div key={row.categoryId} className="rounded-2xl border border-border bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-foreground">{row.categoryName}</p>
+                    <p className="mt-1 text-xs font-semibold text-muted">{formatMoney(row.remainingAmount, currencyCode)} remaining</p>
+                  </div>
+                  <Badge tone={usageTone(row.percentageUsed)}>{row.percentageUsed.toFixed(0)}%</Badge>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+                  <div className="h-full rounded-full" style={{ width: `${row.usageBarValue}%`, backgroundColor: usageColor(row.percentageUsed) }} />
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="mt-5 rounded-2xl border border-border bg-slate-50 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">Current period</p>
-            <p className="mt-1 text-sm font-bold text-foreground">{periodLabel(periods.summaryPeriod)}</p>
-          </div>
-        </Card>
-      </section>
+        </div>
+      </Card>
 
       <CategoryBudgetUsageCard rows={remainingRows} currencyCode={currencyCode} period={periods.remainingPeriod} onPeriodChange={onPeriodChange.remaining} />
 
@@ -122,13 +179,11 @@ export function DashboardPage({
         <ChartCard title="Category spending" rows={categoryChartRows} currencyCode={currencyCode} emptyTitle="No category spending" period={periods.spendingPeriod} onPeriodChange={onPeriodChange.spending} />
         <ChartCard title="Account spending" rows={accountChartRows} currencyCode={currencyCode} emptyTitle="No account spending" period={periods.accountPeriod} onPeriodChange={onPeriodChange.account} />
       </section>
-
-      <ChartCard title="Daily spending trend" rows={dailyChartRows} currencyCode={currencyCode} emptyTitle="No daily spending" period={periods.trendPeriod} onPeriodChange={onPeriodChange.trend} />
     </>
   );
 }
 
-function MetricCard({ label, value, tone, icon: Icon = CircleDollarSign, onEdit, compact = false }) {
+function MetricCard({ label, value, tone, icon: Icon = CircleDollarSign, onEdit, highlighted = false }) {
   const toneClasses = {
     neutral: "bg-slate-100 text-slate-950",
     warning: "bg-amber-50 text-warning",
@@ -138,24 +193,20 @@ function MetricCard({ label, value, tone, icon: Icon = CircleDollarSign, onEdit,
   };
 
   return (
-    <Card className={compact ? "min-w-0 p-4 shadow-none" : ""}>
-      <div className={compact ? "grid min-w-0 gap-3" : "flex items-start justify-between gap-4"}>
-        <div className={compact ? "flex min-w-0 items-start justify-between gap-3" : "min-w-0"}>
-          <div className="min-w-0">
-          <p className="text-sm font-semibold text-muted">{label}</p>
-            <p className={`${compact ? "text-xl" : "text-3xl"} mt-2 truncate font-display font-bold tracking-tight text-foreground`}>{value}</p>
+    <Card className={highlighted ? "bg-slate-950 text-white" : ""}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className={`text-sm font-semibold ${highlighted ? "text-slate-300" : "text-muted"}`}>{label}</p>
+          <p className={`mt-3 truncate font-display text-3xl font-bold tracking-tight ${highlighted ? "text-white" : "text-foreground"}`}>{value}</p>
           </div>
           {onEdit && (
-            <Button type="button" variant="ghost" className="h-9 w-9 shrink-0 px-0" onClick={onEdit} aria-label={`Edit ${label}`}>
+          <Button type="button" variant="ghost" className="h-9 w-9 shrink-0 px-0" onClick={onEdit} aria-label={`Edit ${label}`}>
               <Pencil className="h-4 w-4" />
             </Button>
           )}
-        </div>
-        <div className={compact ? "flex justify-end" : "flex items-center gap-2"}>
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${toneClasses[tone] ?? toneClasses.neutral}`}>
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${highlighted ? "bg-white/10 text-white" : toneClasses[tone] ?? toneClasses.neutral}`}>
             <Icon className="h-5 w-5" />
           </div>
-        </div>
       </div>
     </Card>
   );

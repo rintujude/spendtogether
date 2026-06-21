@@ -4,11 +4,12 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Bell, CheckCircle2, CreditCard, Inbox, Landmark, ReceiptText, WalletCards } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { z } from "zod";
 import { AppLayout, AuthLayout } from "./components/layout";
 import { defaultPresetPeriod, periodQuery } from "./components/filters";
-import { Badge, Button, Dialog, Form, Input, PageHeader, Select } from "./components/ui";
+import { Badge, Button, Card, Dialog, EmptyState, Form, Input, PageHeader, Select } from "./components/ui";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
 import { LandingPage } from "./pages/LandingPage";
@@ -133,6 +134,8 @@ function App() {
   }, [dashboard, dashboardCards.remaining]);
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
   const currencyCode = dashboard?.currencyCode ?? activeWorkspace?.currencyCode ?? "GBP";
+  const currencySymbol = getCurrencySymbol(currencyCode);
+  const selectedPaymentSourceId = expenseForm.watch("paymentSourceId");
 
   async function api(path, options = {}) {
     let response;
@@ -714,6 +717,36 @@ function App() {
     navigate("/login", { replace: true });
   }
 
+  function renderSetupPage(initialTab = "details") {
+    return (
+      <SetupPage
+        activeWorkspace={activeWorkspace}
+        workspaceForm={workspaceForm}
+        editWorkspaceForm={editWorkspaceForm}
+        categoryForm={categoryForm}
+        sourceForm={sourceForm}
+        categories={categories}
+        paymentSources={paymentSources}
+        budgets={budgets}
+        members={members}
+        pendingInvitations={pendingInvitations}
+        dashboard={dashboard}
+        currencyCode={currencyCode}
+        initialTab={initialTab}
+        categoryBudgetStatus={dashboardCards.remaining?.categories ?? []}
+        onCreateWorkspace={createWorkspace}
+        onUpdateWorkspace={updateWorkspace}
+        onCreateCategory={createCategory}
+        onUpdateCategory={updateCategory}
+        onDeactivateCategory={deactivateCategory}
+        onCreatePaymentSource={createPaymentSource}
+        onUpdatePaymentSource={updatePaymentSource}
+        onDeactivatePaymentSource={deactivatePaymentSource}
+        onInviteMember={inviteMember}
+      />
+    );
+  }
+
   if (!token) {
     return (
       <>
@@ -747,6 +780,7 @@ function App() {
         onAcceptInvitation={acceptInvitationFromNotification}
         onDeclineInvitation={declineInvitationFromNotification}
         onDeleteNotification={deleteNotification}
+        onAddExpense={() => setExpenseDialogOpen(true)}
       >
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -766,6 +800,7 @@ function App() {
                 }}
                 currencyCode={currencyCode}
                 loading={loading}
+                recentExpenses={expenses}
                 onRefresh={() => loadWorkspaceData()}
                 onAddExpense={() => setExpenseDialogOpen(true)}
                 onEditTotalBudget={() => {
@@ -777,33 +812,24 @@ function App() {
           />
           <Route
             path="/manage-workspace"
+            element={renderSetupPage("details")}
+          />
+          <Route path="/setup" element={<Navigate to="/manage-workspace" replace />} />
+          <Route path="/categories" element={renderSetupPage("categories")} />
+          <Route path="/payment-sources" element={renderSetupPage("sources")} />
+          <Route path="/members" element={renderSetupPage("members")} />
+          <Route path="/settings" element={renderSetupPage("details")} />
+          <Route
+            path="/notifications"
             element={
-              <SetupPage
-                activeWorkspace={activeWorkspace}
-                workspaceForm={workspaceForm}
-                editWorkspaceForm={editWorkspaceForm}
-                categoryForm={categoryForm}
-                sourceForm={sourceForm}
-                categories={categories}
-                paymentSources={paymentSources}
-                budgets={budgets}
-                members={members}
-                pendingInvitations={pendingInvitations}
-                dashboard={dashboard}
-                currencyCode={currencyCode}
-                onCreateWorkspace={createWorkspace}
-                onUpdateWorkspace={updateWorkspace}
-                onCreateCategory={createCategory}
-                onUpdateCategory={updateCategory}
-                onDeactivateCategory={deactivateCategory}
-                onCreatePaymentSource={createPaymentSource}
-                onUpdatePaymentSource={updatePaymentSource}
-                onDeactivatePaymentSource={deactivatePaymentSource}
-                onInviteMember={inviteMember}
+              <NotificationsScreen
+                notifications={notifications}
+                unreadCount={notificationUnreadCount}
+                onRefresh={loadNotifications}
+                onNotificationClick={markNotificationClicked}
               />
             }
           />
-          <Route path="/setup" element={<Navigate to="/manage-workspace" replace />} />
           <Route path="/invitations/accept" element={<InvitationAcceptScreen />} />
           <Route
             path="/expenses"
@@ -823,22 +849,91 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
 
-        <Dialog title="Add expense" description="Record a manual expense in the workspace base currency." open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
-          <Form onSubmit={expenseForm.handleSubmit(createExpense)}>
-            <Select label="Category" error={expenseForm.formState.errors.categoryId?.message} {...expenseForm.register("categoryId")}>
-              <option value="">Choose category</option>
-              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-            </Select>
-            <Select label="Payment source" error={expenseForm.formState.errors.paymentSourceId?.message} {...expenseForm.register("paymentSourceId")}>
-              <option value="">Choose payment source</option>
-              {paymentSources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
-            </Select>
-            <Input label={`Amount (${currencyCode})`} type="number" min="0.01" step="0.01" error={expenseForm.formState.errors.amount?.message} {...expenseForm.register("amount")} />
-            <Input label="Date" type="date" error={expenseForm.formState.errors.expenseDate?.message} {...expenseForm.register("expenseDate")} />
-            <Input label="Description" {...expenseForm.register("description")} />
-            <Button type="submit">Save expense</Button>
+        <Dialog title="Add Expense" description="Record a workspace expense in the selected base currency." open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
+          <Form onSubmit={expenseForm.handleSubmit(createExpense)} className="gap-5">
+            <div className="rounded-3xl border border-border bg-slate-50 p-4 text-center">
+              <label className="mx-auto flex max-w-xs items-center justify-center gap-2">
+                <span className="font-display text-4xl font-bold tracking-tight text-foreground">{currencySymbol}</span>
+                <input
+                  className="min-w-0 flex-1 bg-transparent text-center font-display text-5xl font-bold tracking-tight text-foreground outline-none placeholder:text-slate-300"
+                  placeholder="0.00"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  aria-label={`Amount in ${currencyCode}`}
+                  {...expenseForm.register("amount")}
+                />
+              </label>
+              {expenseForm.formState.errors.amount?.message && (
+                <p className="mt-2 text-xs font-semibold text-danger">{expenseForm.formState.errors.amount.message}</p>
+              )}
+              <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-2 text-xs font-bold text-muted shadow-sm">
+                <Landmark className="h-3.5 w-3.5" />
+                {activeWorkspace?.name ?? "Workspace"} • {currencyCode}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select label="Category" error={expenseForm.formState.errors.categoryId?.message} {...expenseForm.register("categoryId")}>
+                <option value="">Choose category</option>
+                {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </Select>
+              <Input label="Date" type="date" error={expenseForm.formState.errors.expenseDate?.message} {...expenseForm.register("expenseDate")} />
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <WalletCards className="h-4 w-4 text-muted" />
+                Payment source
+              </div>
+              {expenseForm.formState.errors.paymentSourceId?.message && (
+                <p className="mb-2 text-xs font-semibold text-danger">{expenseForm.formState.errors.paymentSourceId.message}</p>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {paymentSources.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border bg-slate-50 p-4 text-sm font-semibold text-muted sm:col-span-2">
+                    Add a payment source before saving expenses.
+                  </div>
+                ) : paymentSources.map((source) => {
+                  const selected = selectedPaymentSourceId === source.id;
+                  return (
+                    <button
+                      key={source.id}
+                      type="button"
+                      className={`flex items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-border bg-white text-foreground hover:bg-slate-50"}`}
+                      onClick={() => expenseForm.setValue("paymentSourceId", source.id, { shouldDirty: true, shouldValidate: true })}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${selected ? "bg-white/10 text-white" : "bg-slate-100 text-slate-950"}`}>
+                          {source.type?.includes("CARD") ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-bold">{source.name}</span>
+                          <span className={`mt-0.5 block truncate text-xs font-semibold ${selected ? "text-slate-300" : "text-muted"}`}>{source.type ?? "Payment source"}</span>
+                        </span>
+                      </span>
+                      {selected && <CheckCircle2 className="h-5 w-5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <label className="grid gap-2 text-sm font-medium text-foreground">
+              <span>Description</span>
+              <textarea
+                className="min-h-24 w-full resize-none rounded-xl border border-border bg-white px-3 py-3 text-sm text-foreground shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+                placeholder="What was this expense for?"
+                {...expenseForm.register("description")}
+              />
+            </label>
+
+            <Button type="submit" className="h-12 w-full rounded-2xl">
+              <ReceiptText className="h-4 w-4" />
+              Save Expense
+            </Button>
           </Form>
-        </Dialog>
+          </Dialog>
 
         <Dialog title="Edit Total Budget" description="Set the total monthly budget for the selected workspace." open={totalBudgetDialogOpen} onOpenChange={setTotalBudgetDialogOpen}>
           <Form onSubmit={totalBudgetForm.handleSubmit(updateTotalBudget)}>
@@ -945,6 +1040,67 @@ function InvitationAcceptScreen() {
       </div>
     </AuthLayout>
   );
+}
+
+function NotificationsScreen({ notifications = [], unreadCount = 0, onRefresh, onNotificationClick }) {
+  return (
+    <>
+      <PageHeader
+        title="Notifications"
+        description="Review workspace invitations and SpendTogether updates."
+        actions={
+          <Button type="button" variant="secondary" onClick={onRefresh}>
+            <Bell className="h-4 w-4" />
+            Refresh
+          </Button>
+        }
+      />
+      <Card>
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Workspace updates</h2>
+            <p className="mt-1 text-sm font-medium text-muted">{unreadCount} unread notifications</p>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-950">
+            <Bell className="h-5 w-5" />
+          </div>
+        </div>
+        {notifications.length === 0 ? (
+          <EmptyState title="No notifications yet" description="Workspace invitations and updates will appear here." />
+        ) : (
+          <div className="grid gap-3">
+            {notifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                className="flex items-start gap-3 rounded-2xl border border-border bg-slate-50 p-4 text-left transition hover:bg-white hover:shadow-sm"
+                onClick={() => onNotificationClick?.(notification)}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm">
+                  <Inbox className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-foreground">{notification.title}</p>
+                  <p className="mt-1 line-clamp-2 text-sm font-medium leading-6 text-muted">{notification.message}</p>
+                </div>
+                {!notification.readAt && <Badge tone="primary">New</Badge>}
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
+  );
+}
+
+function getCurrencySymbol(currencyCode) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: currencyCode || "GBP",
+    currencyDisplay: "narrowSymbol",
+  })
+    .formatToParts(0)
+    .find((part) => part.type === "currency")?.value || currencyCode || "GBP";
 }
 
 function Root() {

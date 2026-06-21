@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CreditCard, FolderKanban, Pencil, Plus, Settings, Trash2, UserPlus, UsersRound, WalletCards } from "lucide-react";
+import { CreditCard, FolderKanban, Home, Landmark, Pencil, Plane, Plus, ReceiptText, Settings, ShoppingBag, ShoppingCart, Tag, Trash2, UserPlus, UsersRound, WalletCards } from "lucide-react";
 import {
   Badge,
   Button,
@@ -44,6 +44,8 @@ export function SetupPage({
   pendingInvitations,
   dashboard,
   currencyCode,
+  initialTab = "details",
+  categoryBudgetStatus = [],
   onCreateWorkspace,
   onUpdateWorkspace,
   onCreateCategory,
@@ -57,8 +59,14 @@ export function SetupPage({
   const [editingCategory, setEditingCategory] = useState(null);
   const [editingSource, setEditingSource] = useState(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(initialTab);
   const currencySymbol = getCurrencySymbol(currencyCode);
   const monthlyBudgetLabel = `Monthly Budget (${currencySymbol})`;
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     if (activeWorkspace) {
@@ -73,8 +81,14 @@ export function SetupPage({
     <>
       <PageHeader
         eyebrow="Settings"
-        title="Manage Workspace"
+        title={initialTab === "categories" ? "Budget Categories" : initialTab === "sources" ? "Payment Sources" : initialTab === "members" ? "Members" : "Manage Workspace"}
         description="Manage workspace details, categories, payment sources, and members from one place."
+        actions={initialTab === "categories" ? (
+          <Button type="button" onClick={() => setAddCategoryOpen(true)} disabled={!activeWorkspace}>
+            <Plus className="h-4 w-4" />
+            Add Category
+          </Button>
+        ) : null}
       />
 
       <section className="grid gap-4 md:grid-cols-4">
@@ -84,7 +98,7 @@ export function SetupPage({
         <WorkspaceStat title="Members" value={members.length.toString()} description="Owners, contributors, viewers" icon={UsersRound} />
       </section>
 
-      <Tabs defaultValue="details" className="grid gap-5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="grid gap-5">
         <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="details">Workspace</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
@@ -139,7 +153,7 @@ export function SetupPage({
         </TabsContent>
 
         <TabsContent value="categories" className="grid gap-5">
-          <Card>
+          <Card className={initialTab === "categories" ? "hidden" : ""}>
             <CardHeader>
               <div>
                 <CardTitle>Add category</CardTitle>
@@ -167,7 +181,7 @@ export function SetupPage({
           {categories.length === 0 ? (
             <EmptyState title="No categories yet in SpendTogether" description="Add income or expense categories for this workspace." />
           ) : (
-            <ResponsiveCategoryList categories={categories} currencyCode={currencyCode} onEdit={setEditingCategory} onDeactivate={onDeactivateCategory} />
+            <ResponsiveCategoryList categories={categories} budgetStatus={categoryBudgetStatus} currencyCode={currencyCode} onEdit={setEditingCategory} onDeactivate={onDeactivateCategory} />
           )}
         </TabsContent>
 
@@ -244,6 +258,14 @@ export function SetupPage({
 
       <EditCategoryDialog category={editingCategory} currencyCode={currencyCode} onClose={() => setEditingCategory(null)} onSave={onUpdateCategory} />
       <EditSourceDialog source={editingSource} onClose={() => setEditingSource(null)} onSave={onUpdatePaymentSource} />
+      <AddCategoryDialog
+        open={addCategoryOpen}
+        onOpenChange={setAddCategoryOpen}
+        categoryForm={categoryForm}
+        monthlyBudgetLabel={monthlyBudgetLabel}
+        activeWorkspace={activeWorkspace}
+        onCreateCategory={onCreateCategory}
+      />
       <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} onInviteMember={onInviteMember} />
     </>
   );
@@ -266,46 +288,119 @@ function WorkspaceStat({ title, value, description, icon: Icon }) {
   );
 }
 
-function ResponsiveCategoryList({ categories, currencyCode, onEdit, onDeactivate }) {
+function ResponsiveCategoryList({ categories, budgetStatus = [], currencyCode, onEdit, onDeactivate }) {
+  const statusByCategory = new Map(budgetStatus.map((item) => [item.categoryId, item]));
+
   return (
-    <>
-      <div className="hidden md:block">
-        <Table
-          minWidth="560px"
-          columns={[
-            { key: "name", header: "Name" },
-            { key: "categoryType", header: "Type", width: "120px", render: (row) => <Badge>{formatCategoryType(row.categoryType)}</Badge> },
-            { key: "monthlyBudgetAmount", header: "Monthly Budget", width: "170px", render: (row) => <span className="font-bold">{formatMoney(row.monthlyBudgetAmount, currencyCode)}</span> },
-            { key: "actions", header: "Actions", width: "210px", render: (row) => (
-              <div className="flex gap-2">
-                <Button type="button" variant="secondary" onClick={() => onEdit(row)}><Pencil className="h-4 w-4" />Edit</Button>
-                <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this category?") && onDeactivate(row.id)}><Trash2 className="h-4 w-4" />Deactivate</Button>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {categories.map((category) => {
+        const status = statusByCategory.get(category.id) ?? {};
+        const budgetAmount = Number(status.budgetAmount ?? category.monthlyBudgetAmount ?? 0);
+        const spentAmount = Number(status.spentAmount ?? 0);
+        const remainingAmount = Number(status.remainingAmount ?? budgetAmount - spentAmount);
+        const percentageUsed = budgetAmount > 0 ? Math.min((spentAmount / budgetAmount) * 100, 100) : 0;
+        const theme = categoryTheme(category.name, category.categoryType);
+        const Icon = theme.icon;
+
+        return (
+          <Card key={category.id} className="group p-0 transition hover:-translate-y-0.5 hover:shadow-elevated">
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${theme.className}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-display text-lg font-bold tracking-tight text-foreground">{category.name}</p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-wide text-muted">{formatCategoryType(category.categoryType)}</p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1 opacity-100 md:opacity-0 md:transition md:group-hover:opacity-100">
+                  <Button type="button" variant="ghost" className="h-9 w-9 px-0" aria-label={`Edit ${category.name}`} onClick={() => onEdit(category)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="ghost" className="h-9 w-9 px-0" aria-label={`Deactivate ${category.name}`} onClick={() => window.confirm("Deactivate this category?") && onDeactivate(category.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            ) },
-          ]}
-          rows={categories}
-          getKey={(row) => row.id}
-        />
-      </div>
-      <div className="grid gap-3 md:hidden">
-        {categories.map((category) => (
-          <Card key={category.id} className="p-4">
-            <CardHeader className="mb-3">
-              <div className="min-w-0">
-                <CardTitle className="truncate text-base">{category.name}</CardTitle>
-                <CardDescription>{formatCategoryType(category.categoryType)}</CardDescription>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-muted">Spent</p>
+                  <p className="mt-1 font-display text-xl font-bold tracking-tight text-foreground">{formatMoney(spentAmount, currencyCode)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-semibold text-muted">Budget</p>
+                  <p className="mt-1 font-display text-xl font-bold tracking-tight text-foreground">{formatMoney(budgetAmount, currencyCode)}</p>
+                </div>
               </div>
-              <p className="shrink-0 font-display text-lg font-bold tracking-tight text-foreground">{formatMoney(category.monthlyBudgetAmount, currencyCode)}</p>
-            </CardHeader>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" onClick={() => onEdit(category)}><Pencil className="h-4 w-4" />Edit</Button>
-              <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this category?") && onDeactivate(category.id)}><Trash2 className="h-4 w-4" />Deactivate</Button>
+              <div className="mt-5">
+                <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-muted">
+                  <span>{percentageUsed.toFixed(0)}% used</span>
+                  <span className={remainingAmount < 0 ? "text-danger" : "text-success"}>
+                    {remainingAmount < 0 ? "Over" : "Left"} {formatMoney(Math.abs(remainingAmount), currencyCode)}
+                  </span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full" style={{ width: `${percentageUsed}%`, backgroundColor: budgetColor(percentageUsed, remainingAmount < 0) }} />
+                </div>
+              </div>
             </div>
           </Card>
-        ))}
-      </div>
-    </>
+        );
+      })}
+    </div>
   );
+}
+
+function AddCategoryDialog({ open, onOpenChange, categoryForm, monthlyBudgetLabel, activeWorkspace, onCreateCategory }) {
+  async function submit(values) {
+    await onCreateCategory(values);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog title="Add Category" description="Create a category and its monthly budget together." open={open} onOpenChange={onOpenChange}>
+      <Form onSubmit={categoryForm.handleSubmit(submit)}>
+        <Input label="Category name" placeholder="Groceries" error={categoryForm.formState.errors.name?.message} {...categoryForm.register("name")} />
+        <Select label="Type" error={categoryForm.formState.errors.categoryType?.message} {...categoryForm.register("categoryType")}>
+          <option value="EXPENSE">Expense</option>
+          <option value="INCOME">Income</option>
+        </Select>
+        <Input
+          label={monthlyBudgetLabel}
+          type="number"
+          min="0"
+          step="0.01"
+          error={categoryForm.formState.errors.monthlyBudgetAmount?.message}
+          {...categoryForm.register("monthlyBudgetAmount")}
+        />
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="submit" disabled={!activeWorkspace}>Add category</Button>
+        </div>
+      </Form>
+    </Dialog>
+  );
+}
+
+function categoryTheme(name = "", type = "EXPENSE") {
+  const text = name.toLowerCase();
+  if (type === "INCOME") return { icon: Landmark, className: "bg-green-50 text-success" };
+  if (text.includes("food") || text.includes("grocer")) return { icon: ShoppingCart, className: "bg-emerald-50 text-emerald-700" };
+  if (text.includes("shop") || text.includes("online")) return { icon: ShoppingBag, className: "bg-indigo-50 text-indigo-700" };
+  if (text.includes("travel") || text.includes("trip")) return { icon: Plane, className: "bg-sky-50 text-sky-700" };
+  if (text.includes("bill") || text.includes("rent") || text.includes("home")) return { icon: Home, className: "bg-amber-50 text-warning" };
+  if (text.includes("card") || text.includes("bank")) return { icon: CreditCard, className: "bg-slate-100 text-slate-950" };
+  if (text.includes("receipt") || text.includes("expense")) return { icon: ReceiptText, className: "bg-rose-50 text-rose-700" };
+  return { icon: Tag, className: "bg-slate-100 text-slate-950" };
+}
+
+function budgetColor(percentageUsed, overBudget) {
+  if (overBudget || percentageUsed >= 100) return "#DC2626";
+  if (percentageUsed >= 75) return "#F59E0B";
+  if (percentageUsed >= 50) return "#0F172A";
+  return "#16A34A";
 }
 
 function ResponsiveSourceList({ sources, onEdit, onDeactivate }) {
