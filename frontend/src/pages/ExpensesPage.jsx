@@ -68,8 +68,8 @@ export function ExpensesPage({
         }
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <TransactionMetric title="Total spent" value={formatMoney(totalSpent, currencyCode)} description="Across current filters" icon={ReceiptText} />
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+        <TransactionMetric className="col-span-2 md:col-span-1" title="Total spent" value={formatMoney(totalSpent, currencyCode)} description="Across current filters" icon={ReceiptText} />
         <TransactionMetric title="Transactions" value={expenses.length.toString()} description={activeFilterCount > 0 ? `${activeFilterCount} active filters` : "Default period view"} icon={CalendarDays} />
         <TransactionMetric
           title="Latest"
@@ -125,17 +125,17 @@ export function ExpensesPage({
   );
 }
 
-function TransactionMetric({ title, value, description, icon: Icon }) {
+function TransactionMetric({ title, value, description, icon: Icon, className = "" }) {
   return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between gap-4">
+    <Card className={`p-3 sm:p-4 ${className}`}>
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-muted">{title}</p>
-          <p className="mt-2 truncate font-display text-2xl font-bold tracking-tight text-foreground">{value}</p>
+          <p className="text-xs font-semibold text-muted sm:text-sm">{title}</p>
+          <p className="mt-2 truncate font-display text-lg font-bold tracking-tight text-foreground sm:text-2xl">{value}</p>
           <p className="mt-1 truncate text-xs font-semibold text-muted">{description}</p>
         </div>
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-950">
-          <Icon className="h-5 w-5" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-950 sm:h-11 sm:w-11">
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
       </div>
     </Card>

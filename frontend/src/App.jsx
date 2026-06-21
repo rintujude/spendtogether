@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Bell, CheckCircle2, CreditCard, Inbox, Landmark, ReceiptText, WalletCards } from "lucide-react";
+import { Bell, CheckCheck, CheckCircle2, Clock3, CreditCard, Inbox, Landmark, MailPlus, ReceiptText, RefreshCcw, WalletCards } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { z } from "zod";
 import { AppLayout, AuthLayout } from "./components/layout";
@@ -718,7 +718,7 @@ function App() {
     navigate("/login", { replace: true });
   }
 
-  function renderSetupPage(initialTab = "details") {
+  function renderSetupPage(initialTab = "details", options = {}) {
     return (
       <SetupPage
         activeWorkspace={activeWorkspace}
@@ -734,6 +734,7 @@ function App() {
         dashboard={dashboard}
         currencyCode={currencyCode}
         initialTab={initialTab}
+        settingsOnly={Boolean(options.settingsOnly)}
         categoryBudgetStatus={dashboardCards.remaining?.categories ?? []}
         onCreateWorkspace={createWorkspace}
         onUpdateWorkspace={updateWorkspace}
@@ -819,7 +820,7 @@ function App() {
           <Route path="/categories" element={renderSetupPage("categories")} />
           <Route path="/payment-sources" element={renderSetupPage("sources")} />
           <Route path="/members" element={renderSetupPage("members")} />
-          <Route path="/settings" element={renderSetupPage("details")} />
+          <Route path="/settings" element={renderSetupPage("details", { settingsOnly: true })} />
           <Route
             path="/notifications"
             element={
@@ -827,6 +828,7 @@ function App() {
                 notifications={notifications}
                 unreadCount={notificationUnreadCount}
                 onRefresh={loadNotifications}
+                onMarkAllRead={markAllNotificationsRead}
                 onNotificationClick={markNotificationClicked}
               />
             }
@@ -850,9 +852,15 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
 
-        <Dialog title="Add Expense" description="Record a workspace expense in the selected base currency." open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
-          <Form onSubmit={expenseForm.handleSubmit(createExpense)} className="gap-5">
-            <div className="rounded-3xl border border-border bg-slate-50 p-4 text-center">
+        <Dialog
+          title="Add Expense"
+          description="Record a workspace expense in the selected base currency."
+          open={expenseDialogOpen}
+          onOpenChange={setExpenseDialogOpen}
+          contentClassName="max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-dvh max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 max-sm:p-4"
+        >
+          <Form onSubmit={expenseForm.handleSubmit(createExpense)} className="gap-5 max-sm:min-h-[calc(100dvh-7.5rem)] max-sm:pb-2">
+            <div className="rounded-3xl border border-border bg-slate-50 p-4 text-center sm:p-5">
               <label className="mx-auto flex max-w-xs items-center justify-center gap-2">
                 <span className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{currencySymbol}</span>
                 <input
@@ -872,6 +880,10 @@ function App() {
                 <Landmark className="h-3.5 w-3.5" />
                 {activeWorkspace?.name ?? "Workspace"} • {currencyCode}
               </div>
+            </div>
+
+            <div className="grid gap-4">
+              <Input label="Description" placeholder="What was this for?" {...expenseForm.register("description")} />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -925,19 +937,12 @@ function App() {
               </div>
             </div>
 
-            <label className="grid gap-2 text-sm font-medium text-foreground">
-              <span>Description</span>
-              <textarea
-                className="min-h-24 w-full resize-none rounded-xl border border-border bg-white px-3 py-3 text-sm text-foreground shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
-                placeholder="What was this expense for?"
-                {...expenseForm.register("description")}
-              />
-            </label>
-
-            <Button type="submit" className="h-12 w-full rounded-2xl">
-              <ReceiptText className="h-4 w-4" />
-              Save Expense
-            </Button>
+            <div className="max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:mt-auto max-sm:border-t max-sm:border-border max-sm:bg-white max-sm:px-4 max-sm:py-3">
+              <Button type="submit" className="h-12 w-full rounded-2xl bg-emerald-700 hover:bg-emerald-800">
+                <ReceiptText className="h-4 w-4" />
+                Save Expense
+              </Button>
+            </div>
           </Form>
           </Dialog>
 
@@ -1048,55 +1053,129 @@ function InvitationAcceptScreen() {
   );
 }
 
-function NotificationsScreen({ notifications = [], unreadCount = 0, onRefresh, onNotificationClick }) {
+function NotificationsScreen({ notifications = [], unreadCount = 0, onRefresh, onMarkAllRead, onNotificationClick }) {
+  const invitations = notifications.filter((notification) => notification.actionType === "ACCEPT_DECLINE_INVITATION" || notification.actionEntityType === "INVITATION");
+  const readCount = Math.max(notifications.length - unreadCount, 0);
+
   return (
     <>
       <PageHeader
         title="Notifications"
         description="Review workspace invitations and SpendTogether updates."
         actions={
-          <Button type="button" variant="secondary" onClick={onRefresh}>
-            <Bell className="h-4 w-4" />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            {unreadCount > 0 && (
+              <Button type="button" variant="secondary" onClick={onMarkAllRead}>
+                <CheckCheck className="h-4 w-4" />
+                Mark all read
+              </Button>
+            )}
+            <Button type="button" variant="secondary" onClick={onRefresh}>
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
         }
       />
-      <Card>
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">Workspace updates</h2>
-            <p className="mt-1 text-sm font-medium text-muted">{unreadCount} unread notifications</p>
-          </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-950">
-            <Bell className="h-5 w-5" />
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+        <NotificationStat className="col-span-2 md:col-span-1" title="Unread" value={unreadCount} description="Need attention" icon={Bell} tone="primary" />
+        <NotificationStat title="Invitations" value={invitations.length} description="Workspace invites" icon={MailPlus} tone="success" />
+        <NotificationStat title="Read" value={readCount} description="Already reviewed" icon={CheckCircle2} tone="neutral" />
+      </section>
+
+      <Card className="overflow-hidden p-0">
+        <div className="border-b border-border bg-slate-950 p-5 text-white sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-300">Workspace updates</p>
+              <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">Notifications inbox</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">Invitations, member activity, and workspace changes appear here.</p>
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white">
+              <Inbox className="h-5 w-5" />
+            </div>
           </div>
         </div>
         {notifications.length === 0 ? (
-          <EmptyState title="No notifications yet" description="Workspace invitations and updates will appear here." />
+          <div className="p-5 sm:p-6">
+            <EmptyState title="No notifications yet" description="Workspace invitations and updates will appear here." />
+          </div>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid gap-3 p-4 sm:p-5">
             {notifications.map((notification) => (
-              <button
-                key={notification.id}
-                type="button"
-                className="flex items-start gap-3 rounded-2xl border border-border bg-slate-50 p-4 text-left transition hover:bg-white hover:shadow-sm"
-                onClick={() => onNotificationClick?.(notification)}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm">
-                  <Inbox className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">{notification.title}</p>
-                  <p className="mt-1 line-clamp-2 text-sm font-medium leading-6 text-muted">{notification.message}</p>
-                </div>
-                {!notification.readAt && <Badge tone="primary">New</Badge>}
-              </button>
+              <NotificationRow key={notification.id} notification={notification} onClick={onNotificationClick} />
             ))}
           </div>
         )}
       </Card>
     </>
   );
+}
+
+function NotificationStat({ title, value, description, icon: Icon, tone, className = "" }) {
+  const toneClass = {
+    primary: "bg-slate-950 text-white",
+    success: "bg-green-50 text-success",
+    neutral: "bg-slate-100 text-slate-950",
+  }[tone] ?? "bg-slate-100 text-slate-950";
+
+  return (
+    <Card className={`p-3 sm:p-4 ${className}`}>
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
+        <div>
+          <p className="text-xs font-semibold text-muted sm:text-sm">{title}</p>
+          <p className="mt-2 font-display text-lg font-bold tracking-tight text-foreground sm:text-2xl">{value}</p>
+          <p className="mt-1 text-xs font-semibold text-muted">{description}</p>
+        </div>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${toneClass}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function NotificationRow({ notification, onClick }) {
+  const unread = !notification.readAt;
+  const invitation = notification.actionType === "ACCEPT_DECLINE_INVITATION" || notification.actionEntityType === "INVITATION";
+  const Icon = invitation ? MailPlus : Bell;
+
+  return (
+    <button
+      type="button"
+      className={`flex min-w-0 items-start gap-3 rounded-2xl border p-4 text-left transition hover:bg-white hover:shadow-sm ${unread ? "border-slate-300 bg-slate-50" : "border-border bg-white"}`}
+      onClick={() => onClick?.(notification)}
+    >
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${invitation ? "bg-green-50 text-success" : "bg-slate-100 text-slate-950"}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p className="min-w-0 truncate text-sm font-bold text-foreground">{notification.title}</p>
+          {unread && <Badge tone="primary">New</Badge>}
+          {invitation && <Badge tone="success">Invitation</Badge>}
+        </div>
+        <p className="mt-1 line-clamp-2 text-sm font-medium leading-6 text-muted">{notification.message}</p>
+        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-muted">
+          <Clock3 className="h-3.5 w-3.5" />
+          {formatNotificationAge(notification.createdAt)}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function formatNotificationAge(value) {
+  if (!value) return "Recently";
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return date.toLocaleDateString();
 }
 
 function getCurrencySymbol(currencyCode) {

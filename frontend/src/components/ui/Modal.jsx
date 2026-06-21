@@ -2,13 +2,14 @@ import React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { Button } from "./Button";
+import { cn } from "../../lib/utils";
 
-export function Dialog({ title, description, children, open, onOpenChange }) {
+export function Dialog({ title, description, children, open, onOpenChange, contentClassName = "" }) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm" />
-        <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-white p-5 shadow-2xl sm:p-6">
+        <DialogPrimitive.Content className={cn("fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-white p-5 shadow-2xl sm:p-6", contentClassName)}>
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <DialogPrimitive.Title className="text-lg font-semibold tracking-tight text-foreground">{title}</DialogPrimitive.Title>

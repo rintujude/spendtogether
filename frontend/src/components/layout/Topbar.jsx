@@ -50,7 +50,7 @@ export function Topbar({
                 ))}
               </Select>
               {activeWorkspace && (
-                <Badge className="shrink-0" title={currencyLabel(activeWorkspace.currencyCode)}>
+                <Badge className="hidden shrink-0 sm:inline-flex" title={currencyLabel(activeWorkspace.currencyCode)}>
                   {activeWorkspace.currencyCode || "GBP"}
                 </Badge>
               )}

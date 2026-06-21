@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Banknote, Building2, Clock3, CreditCard, Crown, Eye, FolderKanban, Home, Landmark, Mail, Pencil, Plane, Plus, ReceiptText, Settings, ShieldCheck, ShoppingBag, ShoppingCart, Smartphone, Tag, Trash2, UserPlus, UsersRound, WalletCards } from "lucide-react";
+import { AlertTriangle, Banknote, Building2, Clock3, CreditCard, Crown, Eye, FolderKanban, Home, Landmark, Mail, Pencil, Plane, Plus, ReceiptText, Settings, ShieldCheck, ShoppingBag, ShoppingCart, Smartphone, Tag, Trash2, UserPlus, UsersRound, WalletCards } from "lucide-react";
 import {
   Badge,
   Button,
@@ -44,6 +44,7 @@ export function SetupPage({
   dashboard,
   currencyCode,
   initialTab = "details",
+  settingsOnly = false,
   categoryBudgetStatus = [],
   onCreateWorkspace,
   onUpdateWorkspace,
@@ -63,6 +64,7 @@ export function SetupPage({
   const [activeTab, setActiveTab] = useState(initialTab);
   const currencySymbol = getCurrencySymbol(currencyCode);
   const monthlyBudgetLabel = `Monthly Budget (${currencySymbol})`;
+  const dedicatedPage = initialTab !== "details" || settingsOnly;
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -81,8 +83,8 @@ export function SetupPage({
     <>
       <PageHeader
         eyebrow="Settings"
-        title={initialTab === "categories" ? "Budget Categories" : initialTab === "sources" ? "Payment Sources" : initialTab === "members" ? "Members" : "Manage Workspace"}
-        description="Manage workspace details, categories, payment sources, and members from one place."
+        title={settingsOnly ? "Workspace Settings" : sectionTitle(initialTab)}
+        description={settingsOnly ? "Update the selected workspace name and base currency." : sectionDescription(initialTab)}
         actions={initialTab === "categories" ? (
           <Button type="button" onClick={() => setAddCategoryOpen(true)} disabled={!activeWorkspace}>
             <Plus className="h-4 w-4" />
@@ -96,44 +98,50 @@ export function SetupPage({
         ) : null}
       />
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <WorkspaceStat title="Workspace" value={activeWorkspace?.name ?? "Not created"} description={activeWorkspace ? `${activeWorkspace.currencyCode || "GBP"} base currency` : "Create one to begin"} icon={Settings} />
-        <WorkspaceStat title="Categories" value={categories.length.toString()} description="Income and expense groups" icon={FolderKanban} />
-        <WorkspaceStat title="Sources" value={paymentSources.length.toString()} description="Cash, bank, cards, wallets" icon={WalletCards} />
-        <WorkspaceStat title="Members" value={members.length.toString()} description="Owners, contributors, viewers" icon={UsersRound} />
-      </section>
+      {!dedicatedPage && (
+        <section className="grid gap-4 md:grid-cols-4">
+          <WorkspaceStat title="Workspace" value={activeWorkspace?.name ?? "Not created"} description={activeWorkspace ? `${activeWorkspace.currencyCode || "GBP"} base currency` : "Create one to begin"} icon={Settings} />
+          <WorkspaceStat title="Categories" value={categories.length.toString()} description="Income and expense groups" icon={FolderKanban} />
+          <WorkspaceStat title="Sources" value={paymentSources.length.toString()} description="Cash, bank, cards, wallets" icon={WalletCards} />
+          <WorkspaceStat title="Members" value={members.length.toString()} description="Owners, contributors, viewers" icon={UsersRound} />
+        </section>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="grid gap-5">
-        <TabsList className="max-w-full overflow-x-auto">
-          <TabsTrigger value="details">Workspace</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="sources">Payment Sources</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-        </TabsList>
+        {!dedicatedPage && (
+          <TabsList className="max-w-full overflow-x-auto">
+            <TabsTrigger value="details">Workspace</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
+            <TabsTrigger value="sources">Payment Sources</TabsTrigger>
+            <TabsTrigger value="members">Members</TabsTrigger>
+          </TabsList>
+        )}
 
         <TabsContent value="details" className="grid gap-5">
-          <Card className="overflow-hidden p-0">
-            <div className="border-b border-border bg-slate-950 p-5 text-white sm:p-6">
-              <p className="text-sm font-semibold text-slate-300">Workspace details</p>
-              <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">{activeWorkspace?.name ?? "Create your first workspace"}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">Choose a workspace name and base currency for shared budget tracking.</p>
-            </div>
-            <div className="grid gap-5 p-5 sm:p-6">
-              {activeWorkspace && (
-                <div className="flex flex-wrap gap-2">
-                  <Badge tone="success">{activeWorkspace.currencyCode || "GBP"} selected</Badge>
-                  <Badge>Shared budget workspace</Badge>
-                </div>
-              )}
-              <Form onSubmit={workspaceForm.handleSubmit(onCreateWorkspace)} className="grid gap-4 md:grid-cols-[1fr_260px_auto] md:items-end">
-                <Input label="Workspace name" placeholder="Trip budget" error={workspaceForm.formState.errors.name?.message} {...workspaceForm.register("name")} />
-                <Select label="Currency" {...workspaceForm.register("currencyCode")}>
-                  {currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.code} - {currency.label}</option>)}
-                </Select>
-                <Button type="submit"><Plus className="h-4 w-4" />Create workspace</Button>
-              </Form>
-            </div>
-          </Card>
+          {(!settingsOnly || !activeWorkspace) && (
+            <Card className="overflow-hidden p-0">
+              <div className="border-b border-border bg-slate-950 p-5 text-white sm:p-6">
+                <p className="text-sm font-semibold text-slate-300">Workspace details</p>
+                <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">{activeWorkspace?.name ?? "Create your first workspace"}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-300">Choose a workspace name and base currency for shared budget tracking.</p>
+              </div>
+              <div className="grid gap-5 p-5 sm:p-6">
+                {activeWorkspace && (
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone="success">{activeWorkspace.currencyCode || "GBP"} selected</Badge>
+                    <Badge>Shared budget workspace</Badge>
+                  </div>
+                )}
+                <Form onSubmit={workspaceForm.handleSubmit(onCreateWorkspace)} className="grid gap-4 md:grid-cols-[1fr_260px_auto] md:items-end">
+                  <Input label="Workspace name" placeholder="Trip budget" error={workspaceForm.formState.errors.name?.message} {...workspaceForm.register("name")} />
+                  <Select label="Currency" {...workspaceForm.register("currencyCode")}>
+                    {currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.code} - {currency.label}</option>)}
+                  </Select>
+                  <Button type="submit"><Plus className="h-4 w-4" />Create workspace</Button>
+                </Form>
+              </div>
+            </Card>
+          )}
 
           {activeWorkspace ? (
             <Card>
@@ -158,6 +166,7 @@ export function SetupPage({
         </TabsContent>
 
         <TabsContent value="categories" className="grid gap-5">
+          <CategoryOverview categories={categories} budgetStatus={categoryBudgetStatus} currencyCode={currencyCode} />
           <Card className={initialTab === "categories" ? "hidden" : ""}>
             <CardHeader>
               <div>
@@ -271,20 +280,55 @@ export function SetupPage({
   );
 }
 
-function WorkspaceStat({ title, value, description, icon: Icon }) {
+function WorkspaceStat({ title, value, description, icon: Icon, className = "" }) {
   return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between gap-4">
+    <Card className={`p-3 sm:p-4 ${className}`}>
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-muted">{title}</p>
-          <p className="mt-2 truncate font-display text-xl font-bold tracking-tight text-foreground">{value}</p>
+          <p className="text-xs font-semibold text-muted sm:text-sm">{title}</p>
+          <p className="mt-2 truncate font-display text-lg font-bold tracking-tight text-foreground sm:text-xl">{value}</p>
           <p className="mt-1 truncate text-xs font-semibold text-muted">{description}</p>
         </div>
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-950">
-          <Icon className="h-5 w-5" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-950 sm:h-11 sm:w-11">
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
       </div>
     </Card>
+  );
+}
+
+function sectionTitle(tab) {
+  if (tab === "categories") return "Budget Categories";
+  if (tab === "sources") return "Payment Sources";
+  if (tab === "members") return "Members";
+  return "Manage Workspace";
+}
+
+function sectionDescription(tab) {
+  if (tab === "categories") return "Create, edit, and review category budgets for this workspace.";
+  if (tab === "sources") return "Manage the accounts, cards, cash, and wallets used for expenses.";
+  if (tab === "members") return "Review workspace members and pending invitations.";
+  return "Manage workspace details, categories, payment sources, and members from one place.";
+}
+
+function CategoryOverview({ categories, budgetStatus = [], currencyCode }) {
+  const statusByCategory = new Map(budgetStatus.map((item) => [item.categoryId, item]));
+  const allocatedBudget = categories.reduce((total, category) => {
+    const status = statusByCategory.get(category.id);
+    return total + Number(status?.budgetAmount ?? category.monthlyBudgetAmount ?? 0);
+  }, 0);
+  const overBudgetCount = categories.filter((category) => {
+    const status = statusByCategory.get(category.id);
+    if (!status) return false;
+    return Boolean(status.overBudget) || Number(status.remainingAmount ?? 0) < 0;
+  }).length;
+
+  return (
+    <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+      <WorkspaceStat className="col-span-2 sm:col-span-1" title="Total categories" value={categories.length.toString()} description="Active budget groups" icon={FolderKanban} />
+      <WorkspaceStat title="Allocated budget" value={formatMoney(allocatedBudget, currencyCode)} description="Across all categories" icon={WalletCards} />
+      <WorkspaceStat title="Over budget" value={overBudgetCount.toString()} description="Need attention" icon={AlertTriangle} />
+    </section>
   );
 }
 
@@ -294,7 +338,7 @@ function MemberOverview({ members, pendingInvitations }) {
   const viewers = members.filter((member) => member.role === "VIEWER").length;
 
   return (
-    <section className="grid gap-4 md:grid-cols-4">
+    <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       <WorkspaceStat title="Active members" value={members.length.toString()} description="Can access workspace" icon={UsersRound} />
       <WorkspaceStat title="Owners" value={owners.toString()} description="Full workspace control" icon={Crown} />
       <WorkspaceStat title="Contributors" value={contributors.toString()} description="Can add expenses" icon={ShieldCheck} />
@@ -506,7 +550,7 @@ function PaymentSourceOverview({ sources }) {
   const cashSources = sources.filter((source) => source.type === "CASH").length;
 
   return (
-    <section className="grid gap-4 md:grid-cols-4">
+    <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       <WorkspaceStat title="Total sources" value={sources.length.toString()} description="Available to expenses" icon={WalletCards} />
       <WorkspaceStat title="Bank sources" value={bankSources.toString()} description="Accounts and debit cards" icon={Building2} />
       <WorkspaceStat title="Credit cards" value={creditCards.toString()} description="Credit spending sources" icon={CreditCard} />
