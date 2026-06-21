@@ -1,7 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { BarChart3, Bell, CreditCard, Landmark, Plus, Settings, Tags, UsersRound, WalletCards } from "lucide-react";
-import { Button, Select } from "../ui";
+import { BarChart3, Bell, CreditCard, Landmark, Settings, Tags, UsersRound, WalletCards } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 const items = [
@@ -12,7 +11,7 @@ const items = [
   { to: "/members", label: "Members", icon: UsersRound },
 ];
 
-export function Sidebar({ activeWorkspace, workspaces = [], workspaceId = "", onWorkspaceChange, onAddExpense }) {
+export function Sidebar() {
   return (
     <aside className="sticky top-0 hidden h-screen border-r border-border bg-white p-5 lg:flex lg:flex-col">
       <NavLink
@@ -28,25 +27,6 @@ export function Sidebar({ activeWorkspace, workspaces = [], workspaceId = "", on
           <p className="text-xs font-medium text-muted">Shared budgets</p>
         </div>
       </NavLink>
-      <div className="mb-5 rounded-2xl border border-border bg-slate-50 p-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-muted">Workspace</p>
-        <Select
-          aria-label="Workspace"
-          className="mt-2"
-          selectClassName="h-10 bg-white font-semibold"
-          value={workspaceId}
-          onChange={(event) => onWorkspaceChange?.(event.target.value)}
-        >
-          <option value="">Select workspace</option>
-          {workspaces.map((workspace) => (
-            <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-          ))}
-        </Select>
-        <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-muted">
-          <span className="truncate">{activeWorkspace?.name ?? "No workspace"}</span>
-          <span className="rounded-full bg-white px-2 py-1 text-foreground shadow-sm">{activeWorkspace?.currencyCode ?? "GBP"}</span>
-        </div>
-      </div>
       <nav className="grid gap-1" aria-label="Main navigation">
         {items.map((item) => {
           const Icon = item.icon;
@@ -86,10 +66,6 @@ export function Sidebar({ activeWorkspace, workspaces = [], workspaceId = "", on
           <Settings className="h-4 w-4" />
           Settings
         </NavLink>
-        <Button type="button" className="mt-3 w-full justify-center rounded-2xl" onClick={onAddExpense}>
-          <Plus className="h-4 w-4" />
-          Add Expense
-        </Button>
       </div>
     </aside>
   );

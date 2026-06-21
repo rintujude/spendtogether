@@ -95,7 +95,7 @@ export function DashboardPage({
 
         <Card>
           <CardHeader>
-              <div>
+              <div className="min-w-0">
               <CardTitle>Recent Expenses</CardTitle>
               <CardDescription>Latest transactions in this workspace.</CardDescription>
               </div>
@@ -109,17 +109,17 @@ export function DashboardPage({
           ) : (
             <div className="grid gap-3">
               {recentExpenses.slice(0, 5).map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-slate-50 p-3">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div key={expense.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-border bg-slate-50 p-3">
+                  <div className="flex min-w-0 items-center gap-3 overflow-hidden">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm">
                       <ReceiptText className="h-4 w-4" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 overflow-hidden">
                       <p className="truncate text-sm font-bold text-foreground">{expense.description || expense.categoryName || "Expense"}</p>
                       <p className="truncate text-xs font-semibold text-muted">{expense.categoryName ?? "Uncategorised"} • {expense.expenseDate}</p>
                     </div>
                   </div>
-                  <p className="shrink-0 text-sm font-bold text-foreground">{formatMoney(expense.amount, currencyCode)}</p>
+                  <p className="max-w-[8.5rem] truncate text-right text-sm font-bold text-foreground tabular-nums">{formatMoney(expense.amount, currencyCode)}</p>
                 </div>
               ))}
             </div>

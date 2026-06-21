@@ -501,6 +501,7 @@ function App() {
       toast.success("Payment source added");
     } catch (err) {
       toast.error(err.message);
+      throw err;
     }
   }
 
@@ -853,9 +854,9 @@ function App() {
           <Form onSubmit={expenseForm.handleSubmit(createExpense)} className="gap-5">
             <div className="rounded-3xl border border-border bg-slate-50 p-4 text-center">
               <label className="mx-auto flex max-w-xs items-center justify-center gap-2">
-                <span className="font-display text-4xl font-bold tracking-tight text-foreground">{currencySymbol}</span>
+                <span className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{currencySymbol}</span>
                 <input
-                  className="min-w-0 flex-1 bg-transparent text-center font-display text-5xl font-bold tracking-tight text-foreground outline-none placeholder:text-slate-300"
+                  className="min-w-0 flex-1 bg-transparent text-center font-display text-4xl font-bold tracking-tight text-foreground outline-none placeholder:text-slate-300 sm:text-5xl"
                   placeholder="0.00"
                   type="number"
                   min="0.01"
@@ -889,7 +890,12 @@ function App() {
               {expenseForm.formState.errors.paymentSourceId?.message && (
                 <p className="mb-2 text-xs font-semibold text-danger">{expenseForm.formState.errors.paymentSourceId.message}</p>
               )}
-              <div className="grid gap-3 sm:grid-cols-2">
+              {paymentSources.length > 6 && (
+                <p className="mb-2 text-xs font-semibold text-muted">
+                  Showing {paymentSources.length} sources. Scroll inside this list to choose one.
+                </p>
+              )}
+              <div className={`grid gap-3 sm:grid-cols-2 ${paymentSources.length > 6 ? "max-h-72 overflow-y-auto rounded-2xl border border-border bg-slate-50 p-2" : ""}`}>
                 {paymentSources.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-border bg-slate-50 p-4 text-sm font-semibold text-muted sm:col-span-2">
                     Add a payment source before saving expenses.
@@ -900,7 +906,7 @@ function App() {
                     <button
                       key={source.id}
                       type="button"
-                      className={`flex items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-border bg-white text-foreground hover:bg-slate-50"}`}
+                      className={`flex min-h-20 items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-border bg-white text-foreground hover:bg-slate-50"}`}
                       onClick={() => expenseForm.setValue("paymentSourceId", source.id, { shouldDirty: true, shouldValidate: true })}
                     >
                       <span className="flex min-w-0 items-center gap-3">

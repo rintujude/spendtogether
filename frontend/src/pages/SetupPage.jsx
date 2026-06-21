@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CreditCard, FolderKanban, Home, Landmark, Pencil, Plane, Plus, ReceiptText, Settings, ShoppingBag, ShoppingCart, Tag, Trash2, UserPlus, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, Building2, Clock3, CreditCard, Crown, Eye, FolderKanban, Home, Landmark, Mail, Pencil, Plane, Plus, ReceiptText, Settings, ShieldCheck, ShoppingBag, ShoppingCart, Smartphone, Tag, Trash2, UserPlus, UsersRound, WalletCards } from "lucide-react";
 import {
   Badge,
   Button,
@@ -13,7 +13,6 @@ import {
   Input,
   PageHeader,
   Select,
-  Table,
   Tabs,
   TabsContent,
   TabsList,
@@ -60,6 +59,7 @@ export function SetupPage({
   const [editingSource, setEditingSource] = useState(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+  const [addSourceOpen, setAddSourceOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab);
   const currencySymbol = getCurrencySymbol(currencyCode);
   const monthlyBudgetLabel = `Monthly Budget (${currencySymbol})`;
@@ -87,6 +87,11 @@ export function SetupPage({
           <Button type="button" onClick={() => setAddCategoryOpen(true)} disabled={!activeWorkspace}>
             <Plus className="h-4 w-4" />
             Add Category
+          </Button>
+        ) : initialTab === "sources" ? (
+          <Button type="button" onClick={() => setAddSourceOpen(true)} disabled={!activeWorkspace}>
+            <Plus className="h-4 w-4" />
+            Add Source
           </Button>
         ) : null}
       />
@@ -186,7 +191,8 @@ export function SetupPage({
         </TabsContent>
 
         <TabsContent value="sources" className="grid gap-5">
-          <Card>
+          <PaymentSourceOverview sources={paymentSources} />
+          <Card className={initialTab === "sources" ? "hidden" : ""}>
             <CardHeader>
               <div>
                 <CardTitle>Add payment source</CardTitle>
@@ -210,10 +216,11 @@ export function SetupPage({
         </TabsContent>
 
         <TabsContent value="members" className="grid gap-5">
+          <MemberOverview members={members} pendingInvitations={pendingInvitations} />
           <Card>
             <CardHeader>
               <div>
-                <CardTitle>Members</CardTitle>
+                <CardTitle>Active members</CardTitle>
                 <CardDescription>Manage active members and pending invitations for this workspace.</CardDescription>
               </div>
               <Button type="button" onClick={() => setInviteOpen(true)} disabled={!activeWorkspace}><UserPlus className="h-4 w-4" />Invite member</Button>
@@ -221,36 +228,22 @@ export function SetupPage({
             {members.length === 0 ? (
               <EmptyState title="No members yet in SpendTogether" description="Invite contributors or viewers to collaborate in this workspace." />
             ) : (
-              <Table
-                minWidth="560px"
-                columns={[
-                  { key: "fullName", header: "Name" },
-                  { key: "email", header: "Email" },
-                  { key: "role", header: "Role", width: "140px", render: (row) => <Badge>{row.role}</Badge> },
-                  { key: "status", header: "Status", width: "120px", render: (row) => <Badge tone="success">{row.status}</Badge> },
-                ]}
-                rows={members}
-                getKey={(row) => row.id}
-              />
+              <MemberList members={members} />
             )}
           </Card>
 
           <Card>
-            <CardTitle>Pending invitations</CardTitle>
+            <CardHeader>
+              <div>
+                <CardTitle>Pending invitations</CardTitle>
+                <CardDescription>Invitations waiting for a response.</CardDescription>
+              </div>
+              <Badge tone={pendingInvitations.length > 0 ? "warning" : "neutral"}>{pendingInvitations.length} pending</Badge>
+            </CardHeader>
             {pendingInvitations.length === 0 ? (
               <EmptyState title="No pending invitations in SpendTogether" description="Invitations you send will appear here until they are accepted or cancelled." />
             ) : (
-              <Table
-                minWidth="560px"
-                columns={[
-                  { key: "email", header: "Email" },
-                  { key: "role", header: "Role", width: "140px", render: (row) => <Badge>{row.role}</Badge> },
-                  { key: "status", header: "Status", width: "130px", render: (row) => <Badge tone="warning">{row.status}</Badge> },
-                  { key: "invitedBy", header: "Invited by", width: "160px" },
-                ]}
-                rows={pendingInvitations}
-                getKey={(row) => row.id}
-              />
+              <InvitationList invitations={pendingInvitations} />
             )}
           </Card>
         </TabsContent>
@@ -258,6 +251,13 @@ export function SetupPage({
 
       <EditCategoryDialog category={editingCategory} currencyCode={currencyCode} onClose={() => setEditingCategory(null)} onSave={onUpdateCategory} />
       <EditSourceDialog source={editingSource} onClose={() => setEditingSource(null)} onSave={onUpdatePaymentSource} />
+      <AddSourceDialog
+        open={addSourceOpen}
+        onOpenChange={setAddSourceOpen}
+        sourceForm={sourceForm}
+        activeWorkspace={activeWorkspace}
+        onCreatePaymentSource={onCreatePaymentSource}
+      />
       <AddCategoryDialog
         open={addCategoryOpen}
         onOpenChange={setAddCategoryOpen}
@@ -286,6 +286,103 @@ function WorkspaceStat({ title, value, description, icon: Icon }) {
       </div>
     </Card>
   );
+}
+
+function MemberOverview({ members, pendingInvitations }) {
+  const owners = members.filter((member) => member.role === "OWNER").length;
+  const contributors = members.filter((member) => member.role === "CONTRIBUTOR").length;
+  const viewers = members.filter((member) => member.role === "VIEWER").length;
+
+  return (
+    <section className="grid gap-4 md:grid-cols-4">
+      <WorkspaceStat title="Active members" value={members.length.toString()} description="Can access workspace" icon={UsersRound} />
+      <WorkspaceStat title="Owners" value={owners.toString()} description="Full workspace control" icon={Crown} />
+      <WorkspaceStat title="Contributors" value={contributors.toString()} description="Can add expenses" icon={ShieldCheck} />
+      <WorkspaceStat title="Pending" value={pendingInvitations.length.toString()} description="Awaiting response" icon={Clock3} />
+    </section>
+  );
+}
+
+function MemberList({ members }) {
+  return (
+    <div className="grid gap-3">
+      {members.map((member) => (
+        <MemberCard key={member.id} member={member} />
+      ))}
+    </div>
+  );
+}
+
+function MemberCard({ member }) {
+  const role = roleTheme(member.role);
+  const Icon = role.icon;
+  const name = member.fullName || member.name || member.email || "Workspace member";
+  const initials = getInitials(name);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-4 rounded-2xl border border-border bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 font-display text-sm font-bold text-white">
+          {initials}
+        </div>
+        <div className="min-w-0">
+          <p className="break-words font-display text-base font-bold tracking-tight text-foreground">{name}</p>
+          <p className="mt-1 break-all text-sm font-medium text-muted">{member.email}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <Badge tone={role.tone} className="gap-1.5">
+          <Icon className="h-3.5 w-3.5" />
+          {formatRole(member.role)}
+        </Badge>
+        <Badge tone={member.status === "ACTIVE" ? "success" : "neutral"}>{formatStatus(member.status)}</Badge>
+      </div>
+    </div>
+  );
+}
+
+function InvitationList({ invitations }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {invitations.map((invitation) => (
+        <InvitationCard key={invitation.id} invitation={invitation} />
+      ))}
+    </div>
+  );
+}
+
+function InvitationCard({ invitation }) {
+  const role = roleTheme(invitation.role);
+  const Icon = role.icon;
+
+  return (
+    <div className="rounded-2xl border border-border bg-slate-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm">
+            <Mail className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="break-all font-display text-base font-bold tracking-tight text-foreground">{invitation.email}</p>
+            <p className="mt-1 text-xs font-semibold text-muted">Invited by {invitation.invitedBy || "workspace owner"}</p>
+          </div>
+        </div>
+        <Badge tone="warning">{formatStatus(invitation.status)}</Badge>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Badge tone={role.tone} className="gap-1.5">
+          <Icon className="h-3.5 w-3.5" />
+          {formatRole(invitation.role)}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
+function roleTheme(role) {
+  if (role === "OWNER") return { icon: Crown, tone: "primary" };
+  if (role === "VIEWER") return { icon: Eye, tone: "neutral" };
+  return { icon: ShieldCheck, tone: "success" };
 }
 
 function ResponsiveCategoryList({ categories, budgetStatus = [], currencyCode, onEdit, onDeactivate }) {
@@ -403,47 +500,102 @@ function budgetColor(percentageUsed, overBudget) {
   return "#16A34A";
 }
 
+function PaymentSourceOverview({ sources }) {
+  const creditCards = sources.filter((source) => source.type === "CREDIT_CARD").length;
+  const bankSources = sources.filter((source) => ["BANK_ACCOUNT", "CURRENT_ACCOUNT", "SAVINGS", "DEBIT_CARD"].includes(source.type)).length;
+  const cashSources = sources.filter((source) => source.type === "CASH").length;
+
+  return (
+    <section className="grid gap-4 md:grid-cols-4">
+      <WorkspaceStat title="Total sources" value={sources.length.toString()} description="Available to expenses" icon={WalletCards} />
+      <WorkspaceStat title="Bank sources" value={bankSources.toString()} description="Accounts and debit cards" icon={Building2} />
+      <WorkspaceStat title="Credit cards" value={creditCards.toString()} description="Credit spending sources" icon={CreditCard} />
+      <WorkspaceStat title="Cash" value={cashSources.toString()} description="Manual cash tracking" icon={Banknote} />
+    </section>
+  );
+}
+
 function ResponsiveSourceList({ sources, onEdit, onDeactivate }) {
   return (
-    <>
-      <div className="hidden md:block">
-        <Table
-          minWidth="520px"
-          columns={[
-            { key: "name", header: "Name" },
-            { key: "type", header: "Type", width: "170px", render: (row) => <Badge>{formatSourceType(row.type)}</Badge> },
-            { key: "actions", header: "Actions", width: "210px", render: (row) => (
-              <div className="flex gap-2">
-                <Button type="button" variant="secondary" onClick={() => onEdit(row)}><Pencil className="h-4 w-4" />Edit</Button>
-                <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this payment source?") && onDeactivate(row.id)}><Trash2 className="h-4 w-4" />Deactivate</Button>
-              </div>
-            ) },
-          ]}
-          rows={sources}
-          getKey={(row) => row.id}
-        />
-      </div>
-      <div className="grid gap-3 md:hidden">
-        {sources.map((source) => (
-          <Card key={source.id} className="p-4">
-            <CardHeader className="mb-3">
-              <div className="min-w-0">
-                <CardTitle className="truncate text-base">{source.name}</CardTitle>
-                <CardDescription>{formatSourceType(source.type)}</CardDescription>
-              </div>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-950">
-                <CreditCard className="h-5 w-5" />
-              </div>
-            </CardHeader>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" onClick={() => onEdit(source)}><Pencil className="h-4 w-4" />Edit</Button>
-              <Button type="button" variant="ghost" onClick={() => window.confirm("Deactivate this payment source?") && onDeactivate(source.id)}><Trash2 className="h-4 w-4" />Deactivate</Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {sources.map((source) => (
+        <PaymentSourceCard key={source.id} source={source} onEdit={onEdit} onDeactivate={onDeactivate} />
+      ))}
+    </div>
   );
+}
+
+function PaymentSourceCard({ source, onEdit, onDeactivate }) {
+  const theme = sourceTheme(source.type);
+  const Icon = theme.icon;
+  const maskedSuffix = source.lastFourDigits ?? source.last4 ?? source.cardLast4 ?? "";
+
+  return (
+    <Card className="group overflow-hidden p-0 transition hover:-translate-y-0.5 hover:shadow-elevated">
+      <div className="p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <Badge tone={theme.badgeTone}>{formatSourceType(source.type)}</Badge>
+          {maskedSuffix && <span className="text-xs font-bold text-muted">•••• {maskedSuffix}</span>}
+        </div>
+
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${theme.iconClassName}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="break-words font-display text-xl font-bold tracking-tight text-foreground">{source.name}</p>
+            <p className="mt-1 text-sm font-medium text-muted">Available for workspace expenses</p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" className="h-10 px-3" onClick={() => onEdit(source)}>
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-10 px-3"
+            onClick={() => window.confirm("Deactivate this payment source?") && onDeactivate(source.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+            Deactivate
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function AddSourceDialog({ open, onOpenChange, sourceForm, activeWorkspace, onCreatePaymentSource }) {
+  async function submit(values) {
+    await onCreatePaymentSource(values);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog title="Add Payment Source" description="Add an account, card, cash wallet, or online wallet for workspace expenses." open={open} onOpenChange={onOpenChange}>
+      <Form onSubmit={sourceForm.handleSubmit(submit)}>
+        <Input label="Source name" placeholder="Barclays Current" error={sourceForm.formState.errors.name?.message} {...sourceForm.register("name")} />
+        <Select label="Type" {...sourceForm.register("type")}>
+          {paymentSourceTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </Select>
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="submit" disabled={!activeWorkspace}>Add source</Button>
+        </div>
+      </Form>
+    </Dialog>
+  );
+}
+
+function sourceTheme(type = "OTHER") {
+  if (type === "CREDIT_CARD") return { icon: CreditCard, iconClassName: "bg-slate-100 text-slate-950", badgeTone: "primary" };
+  if (type === "CASH") return { icon: Banknote, iconClassName: "bg-amber-50 text-warning", badgeTone: "warning" };
+  if (type === "UPI_WALLET") return { icon: Smartphone, iconClassName: "bg-green-50 text-success", badgeTone: "success" };
+  if (["BANK_ACCOUNT", "CURRENT_ACCOUNT", "SAVINGS", "DEBIT_CARD"].includes(type)) return { icon: Building2, iconClassName: "bg-blue-50 text-blue-700", badgeTone: "primary" };
+  return { icon: WalletCards, iconClassName: "bg-slate-100 text-slate-950", badgeTone: "neutral" };
 }
 
 function EditCategoryDialog({ category, currencyCode, onClose, onSave }) {
@@ -538,21 +690,52 @@ function InviteMemberDialog({ open, onOpenChange, onInviteMember }) {
   }
 
   return (
-    <Dialog title="Invite member" description="Invite a contributor or viewer to join this workspace." open={open} onOpenChange={onOpenChange}>
+    <Dialog title="Invite Member" description="Send an invitation to someone who should access this workspace." open={open} onOpenChange={onOpenChange}>
       <Form onSubmit={submit}>
         <Input label="Email" type="email" value={values.email} onChange={(event) => setValues({ ...values, email: event.target.value })} required />
         <Select label="Role" value={values.role} onChange={(event) => setValues({ ...values, role: event.target.value })}>
           <option value="CONTRIBUTOR">Contributor</option>
           <option value="VIEWER">Viewer</option>
         </Select>
-        <Input label="Message" value={values.message} onChange={(event) => setValues({ ...values, message: event.target.value })} />
+        <div className="rounded-2xl border border-border bg-slate-50 p-4">
+          <p className="text-sm font-bold text-foreground">{values.role === "VIEWER" ? "Viewer access" : "Contributor access"}</p>
+          <p className="mt-1 text-sm font-medium leading-6 text-muted">
+            {values.role === "VIEWER"
+              ? "Viewers can review dashboard and reports, but cannot change workspace data."
+              : "Contributors can view workspace data and add expenses, but cannot manage workspace settings."}
+          </p>
+        </div>
+        <Input label="Optional message" value={values.message} onChange={(event) => setValues({ ...values, message: event.target.value })} />
         <div className="flex justify-end gap-3">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={saving}>{saving ? "Sending" : "Send invite"}</Button>
+          <Button type="submit" disabled={saving}>
+            <UserPlus className="h-4 w-4" />
+            {saving ? "Sending" : "Send invite"}
+          </Button>
         </div>
       </Form>
     </Dialog>
   );
+}
+
+function formatRole(value) {
+  if (value === "OWNER") return "Owner";
+  if (value === "VIEWER") return "Viewer";
+  return "Contributor";
+}
+
+function formatStatus(value) {
+  if (!value) return "Active";
+  return value.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function getInitials(value = "") {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "ST";
 }
 
 function formatCategoryType(value) {

@@ -26,13 +26,9 @@ export function AppLayout({
   return (
     <div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
       <Sidebar
-        activeWorkspace={activeWorkspace}
-        workspaces={workspaces}
-        workspaceId={workspaceId}
-        onWorkspaceChange={onWorkspaceChange}
         onAddExpense={onAddExpense}
       />
-      <div className="min-w-0 pb-24 lg:pb-0">
+      <div className="min-w-0 pb-32 lg:pb-0">
         <Topbar
           user={user}
           workspaces={workspaces}

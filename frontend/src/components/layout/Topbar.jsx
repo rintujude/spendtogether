@@ -1,20 +1,25 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
 import { Bell, CheckCheck, ChevronDown, Inbox, LogOut, MailPlus, Search, Trash2, UserCircle, X } from "lucide-react";
 import {
+  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Select,
 } from "../ui";
+import { currencyLabel } from "../../lib/currencies";
 
 export function Topbar({
   user,
+  workspaces = [],
+  workspaceId = "",
   activeWorkspace,
   notifications = [],
   unreadCount = 0,
   notificationActionId = "",
+  onWorkspaceChange,
   onSignOut,
   onLoadNotifications,
   onMarkAllNotificationsRead,
@@ -23,19 +28,33 @@ export function Topbar({
   onDeclineInvitation,
   onDeleteNotification,
 }) {
-  const location = useLocation();
   const badgeText = unreadCount > 99 ? "99+" : String(unreadCount);
-  const title = pageTitle(location.pathname);
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-xl sm:px-5 md:px-8 md:py-4">
       <div className="mx-auto w-full max-w-[1200px]">
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-xl font-bold tracking-tight text-foreground">{title}</p>
-            <p className="mt-0.5 truncate text-xs font-semibold text-muted">
-              {activeWorkspace?.name ? `${activeWorkspace.name} • ${activeWorkspace.currencyCode || "GBP"}` : "Select a workspace"}
-            </p>
+          <div className="grid min-w-0 shrink-0 grow basis-[min(56vw,300px)] gap-1.5 md:basis-72 md:grow-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Workspace</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <Select
+                aria-label="Workspace"
+                className="min-w-0 flex-1"
+                selectClassName="h-10 bg-white font-semibold"
+                value={workspaceId}
+                onChange={(event) => onWorkspaceChange?.(event.target.value)}
+              >
+                <option value="">Select workspace</option>
+                {workspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+                ))}
+              </Select>
+              {activeWorkspace && (
+                <Badge className="shrink-0" title={currencyLabel(activeWorkspace.currencyCode)}>
+                  {activeWorkspace.currencyCode || "GBP"}
+                </Badge>
+              )}
+            </div>
           </div>
           <label className="hidden min-w-0 flex-1 items-center gap-2 rounded-2xl border border-border bg-white px-3 shadow-sm md:flex md:max-w-md">
             <Search className="h-4 w-4 shrink-0 text-muted" />
@@ -124,16 +143,6 @@ export function Topbar({
       </div>
     </header>
   );
-}
-
-function pageTitle(pathname) {
-  if (pathname.startsWith("/expenses")) return "Expenses";
-  if (pathname.startsWith("/categories")) return "Categories";
-  if (pathname.startsWith("/payment-sources")) return "Payment Sources";
-  if (pathname.startsWith("/members")) return "Members";
-  if (pathname.startsWith("/notifications")) return "Notifications";
-  if (pathname.startsWith("/settings") || pathname.startsWith("/manage-workspace") || pathname.startsWith("/setup")) return "Workspace Settings";
-  return "Dashboard";
 }
 
 function NotificationItem({ notification, busy, onClick, onAcceptInvitation, onDeclineInvitation, onDeleteNotification }) {
