@@ -6,21 +6,21 @@ import { cn } from "../../lib/utils";
 
 export function Sheet({ title, children, open, onOpenChange, side = "left" }) {
   const sideClass = side === "left"
-    ? "left-0 top-0 h-full w-[82vw] max-w-80 border-r"
-    : "right-0 top-0 h-full w-[82vw] max-w-80 border-l";
+    ? "left-0 top-0 h-full w-[88vw] max-w-sm border-r"
+    : "right-0 top-0 h-full w-[88vw] max-w-sm border-l";
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-slate-950/45" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm" />
         <DialogPrimitive.Content
           className={cn(
-            "fixed z-50 border-border bg-white p-5 shadow-2xl",
+            "fixed z-50 overflow-y-auto border-border bg-white p-5 shadow-2xl",
             sideClass,
           )}
         >
           <div className="mb-6 flex items-center justify-between gap-3">
-            <DialogPrimitive.Title className="text-base font-bold text-foreground">
+            <DialogPrimitive.Title className="font-display text-base font-bold tracking-tight text-foreground">
               {title}
             </DialogPrimitive.Title>
             <DialogPrimitive.Close asChild>

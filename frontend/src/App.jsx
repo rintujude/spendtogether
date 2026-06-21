@@ -3,14 +3,16 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Bell, CheckCheck, CheckCircle2, Clock3, CreditCard, Inbox, Landmark, MailPlus, ReceiptText, RefreshCcw, WalletCards } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { z } from "zod";
 import { AppLayout, AuthLayout } from "./components/layout";
 import { defaultPresetPeriod, periodQuery } from "./components/filters";
-import { Button, Dialog, Form, Input, PageHeader, Select } from "./components/ui";
+import { Badge, Button, Card, Dialog, EmptyState, Form, Input, PageHeader, Select } from "./components/ui";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
+import { LandingPage } from "./pages/LandingPage";
 import { SetupPage } from "./pages/SetupPage";
 import { useWorkspaceEvents } from "./hooks/useWorkspaceEvents";
 import { queryKeys } from "./lib/queryKeys";
@@ -132,6 +134,8 @@ function App() {
   }, [dashboard, dashboardCards.remaining]);
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
   const currencyCode = dashboard?.currencyCode ?? activeWorkspace?.currencyCode ?? "GBP";
+  const currencySymbol = getCurrencySymbol(currencyCode);
+  const selectedPaymentSourceId = expenseForm.watch("paymentSourceId");
 
   async function api(path, options = {}) {
     let response;
@@ -497,6 +501,7 @@ function App() {
       toast.success("Payment source added");
     } catch (err) {
       toast.error(err.message);
+      throw err;
     }
   }
 
@@ -713,14 +718,47 @@ function App() {
     navigate("/login", { replace: true });
   }
 
+  function renderSetupPage(initialTab = "details", options = {}) {
+    return (
+      <SetupPage
+        activeWorkspace={activeWorkspace}
+        workspaceForm={workspaceForm}
+        editWorkspaceForm={editWorkspaceForm}
+        categoryForm={categoryForm}
+        sourceForm={sourceForm}
+        categories={categories}
+        paymentSources={paymentSources}
+        budgets={budgets}
+        members={members}
+        pendingInvitations={pendingInvitations}
+        dashboard={dashboard}
+        currencyCode={currencyCode}
+        initialTab={initialTab}
+        settingsOnly={Boolean(options.settingsOnly)}
+        categoryBudgetStatus={dashboardCards.remaining?.categories ?? []}
+        onCreateWorkspace={createWorkspace}
+        onUpdateWorkspace={updateWorkspace}
+        onCreateCategory={createCategory}
+        onUpdateCategory={updateCategory}
+        onDeactivateCategory={deactivateCategory}
+        onCreatePaymentSource={createPaymentSource}
+        onUpdatePaymentSource={updatePaymentSource}
+        onDeactivatePaymentSource={deactivatePaymentSource}
+        onInviteMember={inviteMember}
+      />
+    );
+  }
+
   if (!token) {
     return (
       <>
         <Toaster richColors position="top-right" />
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<AuthScreen mode={mode} setMode={setMode} authForm={authForm} loading={loading} onSubmit={submitAuth} />} />
+          <Route path="/register" element={<AuthScreen mode={mode} setMode={setMode} authForm={authForm} loading={loading} onSubmit={submitAuth} />} />
           <Route path="/invitations/accept" element={<InvitationAcceptScreen />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </>
     );
@@ -744,6 +782,7 @@ function App() {
         onAcceptInvitation={acceptInvitationFromNotification}
         onDeclineInvitation={declineInvitationFromNotification}
         onDeleteNotification={deleteNotification}
+        onAddExpense={() => setExpenseDialogOpen(true)}
       >
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -763,6 +802,7 @@ function App() {
                 }}
                 currencyCode={currencyCode}
                 loading={loading}
+                recentExpenses={expenses}
                 onRefresh={() => loadWorkspaceData()}
                 onAddExpense={() => setExpenseDialogOpen(true)}
                 onEditTotalBudget={() => {
@@ -774,33 +814,25 @@ function App() {
           />
           <Route
             path="/manage-workspace"
+            element={renderSetupPage("details")}
+          />
+          <Route path="/setup" element={<Navigate to="/manage-workspace" replace />} />
+          <Route path="/categories" element={renderSetupPage("categories")} />
+          <Route path="/payment-sources" element={renderSetupPage("sources")} />
+          <Route path="/members" element={renderSetupPage("members")} />
+          <Route path="/settings" element={renderSetupPage("details", { settingsOnly: true })} />
+          <Route
+            path="/notifications"
             element={
-              <SetupPage
-                activeWorkspace={activeWorkspace}
-                workspaceForm={workspaceForm}
-                editWorkspaceForm={editWorkspaceForm}
-                categoryForm={categoryForm}
-                sourceForm={sourceForm}
-                categories={categories}
-                paymentSources={paymentSources}
-                budgets={budgets}
-                members={members}
-                pendingInvitations={pendingInvitations}
-                dashboard={dashboard}
-                currencyCode={currencyCode}
-                onCreateWorkspace={createWorkspace}
-                onUpdateWorkspace={updateWorkspace}
-                onCreateCategory={createCategory}
-                onUpdateCategory={updateCategory}
-                onDeactivateCategory={deactivateCategory}
-                onCreatePaymentSource={createPaymentSource}
-                onUpdatePaymentSource={updatePaymentSource}
-                onDeactivatePaymentSource={deactivatePaymentSource}
-                onInviteMember={inviteMember}
+              <NotificationsScreen
+                notifications={notifications}
+                unreadCount={notificationUnreadCount}
+                onRefresh={loadNotifications}
+                onMarkAllRead={markAllNotificationsRead}
+                onNotificationClick={markNotificationClicked}
               />
             }
           />
-          <Route path="/setup" element={<Navigate to="/manage-workspace" replace />} />
           <Route path="/invitations/accept" element={<InvitationAcceptScreen />} />
           <Route
             path="/expenses"
@@ -820,22 +852,99 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
 
-        <Dialog title="Add expense" description="Record a manual expense in the workspace base currency." open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
-          <Form onSubmit={expenseForm.handleSubmit(createExpense)}>
-            <Select label="Category" error={expenseForm.formState.errors.categoryId?.message} {...expenseForm.register("categoryId")}>
-              <option value="">Choose category</option>
-              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-            </Select>
-            <Select label="Payment source" error={expenseForm.formState.errors.paymentSourceId?.message} {...expenseForm.register("paymentSourceId")}>
-              <option value="">Choose payment source</option>
-              {paymentSources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
-            </Select>
-            <Input label={`Amount (${currencyCode})`} type="number" min="0.01" step="0.01" error={expenseForm.formState.errors.amount?.message} {...expenseForm.register("amount")} />
-            <Input label="Date" type="date" error={expenseForm.formState.errors.expenseDate?.message} {...expenseForm.register("expenseDate")} />
-            <Input label="Description" {...expenseForm.register("description")} />
-            <Button type="submit">Save expense</Button>
+        <Dialog
+          title="Add Expense"
+          description="Record a workspace expense in the selected base currency."
+          open={expenseDialogOpen}
+          onOpenChange={setExpenseDialogOpen}
+          contentClassName="max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-dvh max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 max-sm:p-4"
+        >
+          <Form onSubmit={expenseForm.handleSubmit(createExpense)} className="gap-5 max-sm:min-h-[calc(100dvh-7.5rem)] max-sm:pb-2">
+            <div className="rounded-3xl border border-border bg-slate-50 p-4 text-center sm:p-5">
+              <label className="mx-auto flex max-w-xs items-center justify-center gap-2">
+                <span className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{currencySymbol}</span>
+                <input
+                  className="min-w-0 flex-1 bg-transparent text-center font-display text-4xl font-bold tracking-tight text-foreground outline-none placeholder:text-slate-300 sm:text-5xl"
+                  placeholder="0.00"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  aria-label={`Amount in ${currencyCode}`}
+                  {...expenseForm.register("amount")}
+                />
+              </label>
+              {expenseForm.formState.errors.amount?.message && (
+                <p className="mt-2 text-xs font-semibold text-danger">{expenseForm.formState.errors.amount.message}</p>
+              )}
+              <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-2 text-xs font-bold text-muted shadow-sm">
+                <Landmark className="h-3.5 w-3.5" />
+                {activeWorkspace?.name ?? "Workspace"} • {currencyCode}
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <Input label="Description" placeholder="What was this for?" {...expenseForm.register("description")} />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select label="Category" error={expenseForm.formState.errors.categoryId?.message} {...expenseForm.register("categoryId")}>
+                <option value="">Choose category</option>
+                {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </Select>
+              <Input label="Date" type="date" error={expenseForm.formState.errors.expenseDate?.message} {...expenseForm.register("expenseDate")} />
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <WalletCards className="h-4 w-4 text-muted" />
+                Payment source
+              </div>
+              {expenseForm.formState.errors.paymentSourceId?.message && (
+                <p className="mb-2 text-xs font-semibold text-danger">{expenseForm.formState.errors.paymentSourceId.message}</p>
+              )}
+              {paymentSources.length > 6 && (
+                <p className="mb-2 text-xs font-semibold text-muted">
+                  Showing {paymentSources.length} sources. Scroll inside this list to choose one.
+                </p>
+              )}
+              <div className={`grid gap-3 sm:grid-cols-2 ${paymentSources.length > 6 ? "max-h-72 overflow-y-auto rounded-2xl border border-border bg-slate-50 p-2" : ""}`}>
+                {paymentSources.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border bg-slate-50 p-4 text-sm font-semibold text-muted sm:col-span-2">
+                    Add a payment source before saving expenses.
+                  </div>
+                ) : paymentSources.map((source) => {
+                  const selected = selectedPaymentSourceId === source.id;
+                  return (
+                    <button
+                      key={source.id}
+                      type="button"
+                      className={`flex min-h-20 items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-border bg-white text-foreground hover:bg-slate-50"}`}
+                      onClick={() => expenseForm.setValue("paymentSourceId", source.id, { shouldDirty: true, shouldValidate: true })}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${selected ? "bg-white/10 text-white" : "bg-slate-100 text-slate-950"}`}>
+                          {source.type?.includes("CARD") ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-bold">{source.name}</span>
+                          <span className={`mt-0.5 block truncate text-xs font-semibold ${selected ? "text-slate-300" : "text-muted"}`}>{source.type ?? "Payment source"}</span>
+                        </span>
+                      </span>
+                      {selected && <CheckCircle2 className="h-5 w-5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:mt-auto max-sm:border-t max-sm:border-border max-sm:bg-white max-sm:px-4 max-sm:py-3">
+              <Button type="submit" className="h-12 w-full rounded-2xl bg-emerald-700 hover:bg-emerald-800">
+                <ReceiptText className="h-4 w-4" />
+                Save Expense
+              </Button>
+            </div>
           </Form>
-        </Dialog>
+          </Dialog>
 
         <Dialog title="Edit Total Budget" description="Set the total monthly budget for the selected workspace." open={totalBudgetDialogOpen} onOpenChange={setTotalBudgetDialogOpen}>
           <Form onSubmit={totalBudgetForm.handleSubmit(updateTotalBudget)}>
@@ -859,12 +968,29 @@ function App() {
 }
 
 function AuthScreen({ mode, setMode, authForm, loading, onSubmit }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const targetMode = location.pathname === "/register" ? "register" : "login";
+  const isLogin = mode === "login";
+
+  useEffect(() => {
+    if (mode !== targetMode) {
+      setMode(targetMode);
+      authForm.clearErrors();
+    }
+  }, [authForm, mode, setMode, targetMode]);
+
   return (
     <AuthLayout>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <Badge tone="primary">SpendTogether</Badge>
+        <Link to="/" className="text-sm font-semibold text-muted transition hover:text-foreground">
+          Home
+        </Link>
+      </div>
       <PageHeader
-        eyebrow="SpendTogether"
-        title={mode === "login" ? "Sign in" : "Create account"}
-        description="Use one account to manage shared budget workspaces in SpendTogether."
+        title={isLogin ? "Welcome back" : "Create your account"}
+        description={isLogin ? "Sign in to continue to your shared budget workspace." : "Start a workspace for shared budgeting, expenses, members, and categories."}
       />
       <Form onSubmit={authForm.handleSubmit(onSubmit)} className="mt-6">
         {mode === "register" && (
@@ -872,25 +998,194 @@ function AuthScreen({ mode, setMode, authForm, loading, onSubmit }) {
         )}
         <Input label="Email" type="email" error={authForm.formState.errors.email?.message} {...authForm.register("email")} />
         <Input label="Password" type="password" error={authForm.formState.errors.password?.message} {...authForm.register("password")} />
-        <Button type="submit" disabled={loading}>{loading ? "Please wait" : mode === "login" ? "Sign in" : "Register"}</Button>
+        <Button type="submit" disabled={loading} className="mt-1 w-full">{loading ? "Please wait" : isLogin ? "Sign in" : "Create account"}</Button>
       </Form>
-      <Button type="button" variant="ghost" className="mt-4 w-full" onClick={() => setMode(mode === "login" ? "register" : "login")}>
-        {mode === "login" ? "Need an account? Register" : "Already have an account? Sign in"}
-      </Button>
+      <div className="mt-5 rounded-2xl border border-border bg-slate-50 p-4 text-center">
+        <p className="text-sm font-medium text-muted">
+          {isLogin ? "New to SpendTogether?" : "Already have an account?"}
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-2 w-full"
+          onClick={() => {
+            const nextMode = isLogin ? "register" : "login";
+            setMode(nextMode);
+            navigate(nextMode === "login" ? "/login" : "/register");
+          }}
+        >
+          {isLogin ? "Create an account" : "Sign in instead"}
+        </Button>
+      </div>
     </AuthLayout>
   );
 }
 
 function InvitationAcceptScreen() {
+  const navigate = useNavigate();
+
   return (
     <AuthLayout>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <Badge tone="primary">SpendTogether</Badge>
+        <Link to="/" className="text-sm font-semibold text-muted transition hover:text-foreground">
+          Home
+        </Link>
+      </div>
       <PageHeader
         eyebrow="Workspace invitation"
         title="You have been invited to join this workspace"
-        description="Sign in or create an account to continue with the invitation."
+        description="Sign in or create an account first. After that, open your notifications and accept the invitation from SpendTogether."
       />
+      <div className="mt-6 grid gap-3 rounded-2xl border border-border bg-slate-50 p-4">
+        <p className="text-sm font-bold text-foreground">How to accept</p>
+        <ol className="grid gap-2 text-sm font-medium leading-6 text-muted">
+          <li>1. Sign in with the invited email address.</li>
+          <li>2. Open the notification bell in the top bar.</li>
+          <li>3. Choose Accept on the workspace invitation.</li>
+        </ol>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Button type="button" onClick={() => navigate("/login")}>Sign in</Button>
+        <Button type="button" variant="secondary" onClick={() => navigate("/register")}>Create account</Button>
+      </div>
     </AuthLayout>
   );
+}
+
+function NotificationsScreen({ notifications = [], unreadCount = 0, onRefresh, onMarkAllRead, onNotificationClick }) {
+  const invitations = notifications.filter((notification) => notification.actionType === "ACCEPT_DECLINE_INVITATION" || notification.actionEntityType === "INVITATION");
+  const readCount = Math.max(notifications.length - unreadCount, 0);
+
+  return (
+    <>
+      <PageHeader
+        title="Notifications"
+        description="Review workspace invitations and SpendTogether updates."
+        actions={
+          <div className="flex flex-wrap gap-3">
+            {unreadCount > 0 && (
+              <Button type="button" variant="secondary" onClick={onMarkAllRead}>
+                <CheckCheck className="h-4 w-4" />
+                Mark all read
+              </Button>
+            )}
+            <Button type="button" variant="secondary" onClick={onRefresh}>
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+        }
+      />
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+        <NotificationStat className="col-span-2 md:col-span-1" title="Unread" value={unreadCount} description="Need attention" icon={Bell} tone="primary" />
+        <NotificationStat title="Invitations" value={invitations.length} description="Workspace invites" icon={MailPlus} tone="success" />
+        <NotificationStat title="Read" value={readCount} description="Already reviewed" icon={CheckCircle2} tone="neutral" />
+      </section>
+
+      <Card className="overflow-hidden p-0">
+        <div className="border-b border-border bg-slate-950 p-5 text-white sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-300">Workspace updates</p>
+              <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">Notifications inbox</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">Invitations, member activity, and workspace changes appear here.</p>
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white">
+              <Inbox className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+        {notifications.length === 0 ? (
+          <div className="p-5 sm:p-6">
+            <EmptyState title="No notifications yet" description="Workspace invitations and updates will appear here." />
+          </div>
+        ) : (
+          <div className="grid gap-3 p-4 sm:p-5">
+            {notifications.map((notification) => (
+              <NotificationRow key={notification.id} notification={notification} onClick={onNotificationClick} />
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
+  );
+}
+
+function NotificationStat({ title, value, description, icon: Icon, tone, className = "" }) {
+  const toneClass = {
+    primary: "bg-slate-950 text-white",
+    success: "bg-green-50 text-success",
+    neutral: "bg-slate-100 text-slate-950",
+  }[tone] ?? "bg-slate-100 text-slate-950";
+
+  return (
+    <Card className={`p-3 sm:p-4 ${className}`}>
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
+        <div>
+          <p className="text-xs font-semibold text-muted sm:text-sm">{title}</p>
+          <p className="mt-2 font-display text-lg font-bold tracking-tight text-foreground sm:text-2xl">{value}</p>
+          <p className="mt-1 text-xs font-semibold text-muted">{description}</p>
+        </div>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${toneClass}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function NotificationRow({ notification, onClick }) {
+  const unread = !notification.readAt;
+  const invitation = notification.actionType === "ACCEPT_DECLINE_INVITATION" || notification.actionEntityType === "INVITATION";
+  const Icon = invitation ? MailPlus : Bell;
+
+  return (
+    <button
+      type="button"
+      className={`flex min-w-0 items-start gap-3 rounded-2xl border p-4 text-left transition hover:bg-white hover:shadow-sm ${unread ? "border-slate-300 bg-slate-50" : "border-border bg-white"}`}
+      onClick={() => onClick?.(notification)}
+    >
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${invitation ? "bg-green-50 text-success" : "bg-slate-100 text-slate-950"}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p className="min-w-0 truncate text-sm font-bold text-foreground">{notification.title}</p>
+          {unread && <Badge tone="primary">New</Badge>}
+          {invitation && <Badge tone="success">Invitation</Badge>}
+        </div>
+        <p className="mt-1 line-clamp-2 text-sm font-medium leading-6 text-muted">{notification.message}</p>
+        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-muted">
+          <Clock3 className="h-3.5 w-3.5" />
+          {formatNotificationAge(notification.createdAt)}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function formatNotificationAge(value) {
+  if (!value) return "Recently";
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return date.toLocaleDateString();
+}
+
+function getCurrencySymbol(currencyCode) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: currencyCode || "GBP",
+    currencyDisplay: "narrowSymbol",
+  })
+    .formatToParts(0)
+    .find((part) => part.type === "currency")?.value || currencyCode || "GBP";
 }
 
 function Root() {
