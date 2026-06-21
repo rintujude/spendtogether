@@ -916,13 +916,33 @@ function AuthScreen({ mode, setMode, authForm, loading, onSubmit }) {
 }
 
 function InvitationAcceptScreen() {
+  const navigate = useNavigate();
+
   return (
     <AuthLayout>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <Badge tone="primary">SpendTogether</Badge>
+        <Link to="/" className="text-sm font-semibold text-muted transition hover:text-foreground">
+          Home
+        </Link>
+      </div>
       <PageHeader
         eyebrow="Workspace invitation"
         title="You have been invited to join this workspace"
-        description="Sign in or create an account to continue with the invitation."
+        description="Sign in or create an account first. After that, open your notifications and accept the invitation from SpendTogether."
       />
+      <div className="mt-6 grid gap-3 rounded-2xl border border-border bg-slate-50 p-4">
+        <p className="text-sm font-bold text-foreground">How to accept</p>
+        <ol className="grid gap-2 text-sm font-medium leading-6 text-muted">
+          <li>1. Sign in with the invited email address.</li>
+          <li>2. Open the notification bell in the top bar.</li>
+          <li>3. Choose Accept on the workspace invitation.</li>
+        </ol>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Button type="button" onClick={() => navigate("/login")}>Sign in</Button>
+        <Button type="button" variant="secondary" onClick={() => navigate("/register")}>Create account</Button>
+      </div>
     </AuthLayout>
   );
 }
