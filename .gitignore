@@ -1,5 +1,6 @@
 .env
 .DS_Store
+.env.dev
 
 # Java / Spring
 backend/target/
