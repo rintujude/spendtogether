@@ -34,7 +34,7 @@ jobs:
             User ${{ secrets.DEV_SSH_USER }}
             IdentityFile ~/.ssh/dev_home_server_key
             StrictHostKeyChecking no
-            ProxyCommand cloudflared access ssh --hostname %h --service-token-id ${{ secrets.CF_ACCESS_CLIENT_ID }} --service-token-secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+            ProxyCommand env CF_ACCESS_CLIENT_ID=${{ secrets.CF_ACCESS_CLIENT_ID }} CF_ACCESS_CLIENT_SECRET=${{ secrets.CF_ACCESS_CLIENT_SECRET }} cloudflared access ssh --host %h
           SSHCONFIG
 
           chmod 600 ~/.ssh/config
@@ -42,7 +42,12 @@ jobs:
       - name: Test SSH connection
         run: |
           set -e
-          ssh home-server-dev 'whoami && hostname && pwd'
+          ssh -vvv \
+            -o BatchMode=yes
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=10 \
+            -o ServerAliveCountMax=2 \
+            home-server-dev 'whoami && hostname && pwd'
 
       - name: Deploy development app
         run: |
