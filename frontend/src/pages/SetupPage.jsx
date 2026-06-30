@@ -494,7 +494,7 @@ function ResponsiveCategoryList({ categories, budgetStatus = [], currencyCode, o
   );
 }
 
-function AddCategoryDialog({ open, onOpenChange, categoryForm, monthlyBudgetLabel, activeWorkspace, onCreateCategory }) {
+export function AddCategoryDialog({ open, onOpenChange, categoryForm, monthlyBudgetLabel, activeWorkspace, onCreateCategory }) {
   async function submit(values) {
     await onCreateCategory(values);
     onOpenChange(false);
@@ -612,7 +612,7 @@ function PaymentSourceCard({ source, onEdit, onDeactivate }) {
   );
 }
 
-function AddSourceDialog({ open, onOpenChange, sourceForm, activeWorkspace, onCreatePaymentSource }) {
+export function AddSourceDialog({ open, onOpenChange, sourceForm, activeWorkspace, onCreatePaymentSource }) {
   async function submit(values) {
     await onCreatePaymentSource(values);
     onOpenChange(false);

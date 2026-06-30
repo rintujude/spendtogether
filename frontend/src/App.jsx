@@ -4,16 +4,16 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Bell, CheckCheck, CheckCircle2, Clock3, CreditCard, Inbox, Landmark, MailPlus, ReceiptText, RefreshCcw, WalletCards } from "lucide-react";
+import { Bell, CheckCheck, CheckCircle2, ChevronDown, Clock3, CreditCard, Inbox, Landmark, LogOut, MailPlus, Plus, ReceiptText, RefreshCcw, UserCircle, WalletCards } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { z } from "zod";
 import { AppLayout, AuthLayout } from "./components/layout";
 import { defaultPresetPeriod, periodQuery } from "./components/filters";
-import { Badge, Button, Card, Dialog, EmptyState, Form, Input, PageHeader, Select } from "./components/ui";
+import { Badge, Button, Card, Dialog, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, EmptyState, Form, Input, PageHeader, Select } from "./components/ui";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
 import { LandingPage } from "./pages/LandingPage";
-import { SetupPage } from "./pages/SetupPage";
+import { AddCategoryDialog, AddSourceDialog, SetupPage } from "./pages/SetupPage";
 import { useWorkspaceEvents } from "./hooks/useWorkspaceEvents";
 import { queryKeys } from "./lib/queryKeys";
 import "./styles.css";
@@ -83,6 +83,7 @@ function App() {
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
   const [workspaces, setWorkspaces] = useState([]);
+  const [workspacesLoaded, setWorkspacesLoaded] = useState(false);
   const [workspaceId, setWorkspaceId] = useState("");
   const [categories, setCategories] = useState([]);
   const [paymentSources, setPaymentSources] = useState([]);
@@ -109,6 +110,9 @@ function App() {
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [editExpenseDialogOpen, setEditExpenseDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
+  const [addSourceDialogOpen, setAddSourceDialogOpen] = useState(false);
+  const [returnToExpenseAfterSetup, setReturnToExpenseAfterSetup] = useState(false);
   const [totalBudgetDialogOpen, setTotalBudgetDialogOpen] = useState(false);
   const [totalBudgetSaving, setTotalBudgetSaving] = useState(false);
 
@@ -221,13 +225,17 @@ function App() {
 
   async function loadWorkspaces() {
     if (!token) return;
+    setWorkspacesLoaded(false);
     try {
       const result = await api("/workspaces");
       setWorkspaces(result);
       queryClient.setQueryData(queryKeys.workspaces, result);
       if (!workspaceId && result.length > 0) setWorkspaceId(result[0].id);
+      if (result.length === 0) navigate("/manage-workspace", { replace: true });
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setWorkspacesLoaded(true);
     }
   }
 
@@ -445,7 +453,7 @@ function App() {
   }, [workspaceId, summaryPeriod, remainingPeriod, spendingPeriod, trendPeriod, accountPeriod, summaryPeriodKey, remainingPeriodKey, spendingPeriodKey, trendPeriodKey, accountPeriodKey, filtersKey, transactionFilters, budgetPeriod.year, budgetPeriod.month, queryClient]);
 
   useWorkspaceEvents({
-    token,
+    token: workspaceId ? token : "",
     workspaceId,
     user,
     onWorkspaceEvent: refreshWorkspaceSlices,
@@ -459,6 +467,7 @@ function App() {
       setWorkspaceId(workspace.id);
       setWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)]);
       toast.success("Workspace created");
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       toast.error(err.message);
     }
@@ -482,12 +491,14 @@ function App() {
 
   async function createCategory(values) {
     try {
-      await api(`/workspaces/${workspaceId}/categories`, { method: "POST", body: JSON.stringify(values) });
+      const category = await api(`/workspaces/${workspaceId}/categories`, { method: "POST", body: JSON.stringify(values) });
       categoryForm.reset({ name: "", categoryType: "EXPENSE", monthlyBudgetAmount: "" });
       await loadWorkspaceData();
       toast.success("Category added");
+      return category;
     } catch (err) {
       toast.error(err.message);
+      throw err;
     }
   }
 
@@ -514,10 +525,11 @@ function App() {
 
   async function createPaymentSource(values) {
     try {
-      await api(`/workspaces/${workspaceId}/payment-sources`, { method: "POST", body: JSON.stringify(values) });
+      const source = await api(`/workspaces/${workspaceId}/payment-sources`, { method: "POST", body: JSON.stringify(values) });
       sourceForm.reset({ name: "", type: "CURRENT_ACCOUNT" });
       await loadWorkspaceData();
       toast.success("Payment source added");
+      return source;
     } catch (err) {
       toast.error(err.message);
       throw err;
@@ -687,6 +699,38 @@ function App() {
     }
   }
 
+  function openCategorySetupFromExpense() {
+    setExpenseDialogOpen(false);
+    setReturnToExpenseAfterSetup(true);
+    setAddCategoryDialogOpen(true);
+  }
+
+  function openPaymentSourceSetupFromExpense() {
+    setExpenseDialogOpen(false);
+    setReturnToExpenseAfterSetup(true);
+    setAddSourceDialogOpen(true);
+  }
+
+  async function createCategoryFromExpense(values) {
+    const category = await createCategory(values);
+    if (category?.id) {
+      expenseForm.setValue("categoryId", category.id, { shouldDirty: true, shouldValidate: true });
+    }
+    setReturnToExpenseAfterSetup(false);
+    setExpenseDialogOpen(true);
+    return category;
+  }
+
+  async function createPaymentSourceFromExpense(values) {
+    const source = await createPaymentSource(values);
+    if (source?.id) {
+      expenseForm.setValue("paymentSourceId", source.id, { shouldDirty: true, shouldValidate: true });
+    }
+    setReturnToExpenseAfterSetup(false);
+    setExpenseDialogOpen(true);
+    return source;
+  }
+
   function openEditExpense(expense) {
     const matchedCategory = categories.find((category) => category.name === expense.categoryName);
     const matchedPaymentSource = paymentSources.find((source) => source.name === expense.paymentSourceName);
@@ -743,6 +787,7 @@ function App() {
     setUser(null);
     setWorkspaceId("");
     setWorkspaces([]);
+    setWorkspacesLoaded(false);
     setDashboard(null);
     setBudgets([]);
     setMembers([]);
@@ -753,11 +798,11 @@ function App() {
     setCategories([]);
     setPaymentSources([]);
     setExpenses([]);
-    setSummaryPeriod(defaultPresetPeriod());
-    setRemainingPeriod(defaultPresetPeriod());
-    setSpendingPeriod(defaultPresetPeriod());
-    setTrendPeriod(defaultPresetPeriod());
-    setAccountPeriod(defaultPresetPeriod());
+    setSummaryPeriod(defaultPresetPeriod);
+    setRemainingPeriod(defaultPresetPeriod);
+    setSpendingPeriod(defaultPresetPeriod);
+    setTrendPeriod(defaultPresetPeriod);
+    setAccountPeriod(defaultPresetPeriod);
     setTransactionFilters({ ...defaultPresetPeriod, categoryId: "", paymentSourceId: "", memberId: "" });
   }
 
@@ -809,6 +854,59 @@ function App() {
           <Route path="/invitations/accept" element={<InvitationAcceptScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+      </>
+    );
+  }
+
+  if (!workspacesLoaded) {
+    return (
+      <>
+        <Toaster richColors closeButton position="top-right" />
+        <div className="grid min-h-screen place-items-center bg-background px-4 text-center text-foreground">
+          <div className="rounded-3xl border border-border bg-white p-6 shadow-card">
+            <p className="font-display text-xl font-bold tracking-tight">Loading SpendTogether</p>
+            <p className="mt-2 text-sm font-semibold text-muted">Preparing your workspace...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (workspaces.length === 0) {
+    return (
+      <>
+        <Toaster richColors closeButton position="top-right" />
+        <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 md:px-8">
+          <div className="mx-auto grid w-full max-w-[980px] gap-6">
+            <header className="flex items-center justify-between gap-4 rounded-3xl border border-border bg-white px-4 py-3 shadow-card">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
+                  <Landmark className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-foreground">SpendTogether</p>
+                  <p className="truncate text-xs font-semibold text-muted">Create your first workspace</p>
+                </div>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="secondary" className="shrink-0 rounded-full pl-2.5 pr-3">
+                    <UserCircle className="h-4 w-4" />
+                    <span className="hidden sm:inline">{user?.fullName ?? "User"}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={signOut}>
+                    <LogOut className="mr-2 inline h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </header>
+            {renderSetupPage("details")}
+          </div>
+        </main>
       </>
     );
   }
@@ -937,10 +1035,28 @@ function App() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Select label="Category" error={expenseForm.formState.errors.categoryId?.message} {...expenseForm.register("categoryId")}>
-                <option value="">Choose category</option>
-                {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-              </Select>
+              <div className="grid gap-2">
+                <Select
+                  label="Category"
+                  error={expenseForm.formState.errors.categoryId?.message}
+                  {...expenseForm.register("categoryId", {
+                    onChange: (event) => {
+                      if (event.target.value === "__add_category__") {
+                        event.target.value = "";
+                        expenseForm.setValue("categoryId", "", { shouldDirty: true, shouldValidate: true });
+                        openCategorySetupFromExpense();
+                      }
+                    },
+                  })}
+                >
+                  <option value="">Choose category</option>
+                  <option value="__add_category__">+ Add new category</option>
+                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </Select>
+                {categories.length === 0 && (
+                  <p className="text-xs font-semibold text-muted">Add a category before saving expenses.</p>
+                )}
+              </div>
               <Input label="Date" type="date" error={expenseForm.formState.errors.expenseDate?.message} {...expenseForm.register("expenseDate")} />
             </div>
 
@@ -957,7 +1073,7 @@ function App() {
                   Showing {paymentSources.length} sources. Scroll inside this list to choose one.
                 </p>
               )}
-              <div className={`grid gap-3 sm:grid-cols-2 ${paymentSources.length > 6 ? "max-h-72 overflow-y-auto rounded-2xl border border-border bg-slate-50 p-2" : ""}`}>
+              <div className={`grid gap-2 sm:grid-cols-2 lg:grid-cols-3 ${paymentSources.length > 6 ? "max-h-64 overflow-y-auto rounded-2xl border border-border bg-slate-50 p-2" : ""}`}>
                 {paymentSources.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-border bg-slate-50 p-4 text-sm font-semibold text-muted sm:col-span-2">
                     Add a payment source before saving expenses.
@@ -968,22 +1084,30 @@ function App() {
                     <button
                       key={source.id}
                       type="button"
-                      className={`flex min-h-20 items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-border bg-white text-foreground hover:bg-slate-50"}`}
+                      className={`flex min-h-14 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-border bg-white text-foreground hover:bg-slate-50"}`}
                       onClick={() => expenseForm.setValue("paymentSourceId", source.id, { shouldDirty: true, shouldValidate: true })}
                     >
-                      <span className="flex min-w-0 items-center gap-3">
-                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${selected ? "bg-white/10 text-white" : "bg-slate-100 text-slate-950"}`}>
-                          {source.type?.includes("CARD") ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${selected ? "bg-white/10 text-white" : "bg-slate-100 text-slate-950"}`}>
+                          {source.type?.includes("CARD") ? <CreditCard className="h-3.5 w-3.5" /> : <WalletCards className="h-3.5 w-3.5" />}
                         </span>
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-bold">{source.name}</span>
-                          <span className={`mt-0.5 block truncate text-xs font-semibold ${selected ? "text-slate-300" : "text-muted"}`}>{source.type ?? "Payment source"}</span>
+                          <span className={`block truncate text-[11px] font-semibold ${selected ? "text-slate-300" : "text-muted"}`}>{source.type ?? "Payment source"}</span>
                         </span>
                       </span>
-                      {selected && <CheckCircle2 className="h-5 w-5 shrink-0" />}
+                      {selected && <CheckCircle2 className="h-4 w-4 shrink-0" />}
                     </button>
                   );
                 })}
+                <button
+                  type="button"
+                  className="flex min-h-14 items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-slate-50 px-3 py-2 text-sm font-bold text-foreground transition hover:border-slate-300 hover:bg-white sm:col-span-2 lg:col-span-3"
+                  onClick={openPaymentSourceSetupFromExpense}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add new payment source
+                </button>
               </div>
             </div>
 
@@ -995,6 +1119,35 @@ function App() {
             </div>
           </Form>
           </Dialog>
+
+        <AddCategoryDialog
+          open={addCategoryDialogOpen}
+          onOpenChange={(open) => {
+            setAddCategoryDialogOpen(open);
+            if (!open && returnToExpenseAfterSetup) {
+              setReturnToExpenseAfterSetup(false);
+              setExpenseDialogOpen(true);
+            }
+          }}
+          categoryForm={categoryForm}
+          monthlyBudgetLabel={`Monthly Budget (${currencySymbol})`}
+          activeWorkspace={activeWorkspace}
+          onCreateCategory={createCategoryFromExpense}
+        />
+
+        <AddSourceDialog
+          open={addSourceDialogOpen}
+          onOpenChange={(open) => {
+            setAddSourceDialogOpen(open);
+            if (!open && returnToExpenseAfterSetup) {
+              setReturnToExpenseAfterSetup(false);
+              setExpenseDialogOpen(true);
+            }
+          }}
+          sourceForm={sourceForm}
+          activeWorkspace={activeWorkspace}
+          onCreatePaymentSource={createPaymentSourceFromExpense}
+        />
 
         <Dialog
           title="Edit Expense"
@@ -1342,10 +1495,43 @@ function Root() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   );
+}
+
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="grid min-h-screen place-items-center bg-background px-4 text-center text-foreground">
+          <div className="max-w-md rounded-3xl border border-border bg-white p-6 shadow-card">
+            <p className="font-display text-xl font-bold tracking-tight">SpendTogether could not load</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-muted">
+              Something went wrong while opening this page. Please refresh and try again.
+            </p>
+            <Button type="button" className="mt-5" onClick={() => window.location.reload()}>
+              Refresh
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 createRoot(document.getElementById("root")).render(<Root />);
