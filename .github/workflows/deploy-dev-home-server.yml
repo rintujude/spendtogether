@@ -1,0 +1,114 @@
+name: Deploy Dev to Home Server
+
+on:
+  push:
+    branches:
+      - development
+
+jobs:
+  deploy-dev:
+    name: Deploy development environment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Prepare SSH key
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEV_SSH_KEY }}" > ~/.ssh/dev_home_server_key
+          chmod 600 ~/.ssh/dev_home_server_key
+
+      - name: Test SSH connection
+        run: |
+          set -e
+          ssh -i ~/.ssh/dev_home_server_key \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=30 \
+            ${{ secrets.DEV_SSH_USER }}@${{ secrets.DEV_SSH_HOST }} \
+            'whoami && hostname && pwd'
+
+      - name: Deploy development app
+        run: |
+          set -e
+
+          ssh -i ~/.ssh/dev_home_server_key \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=30 \
+            ${{ secrets.DEV_SSH_USER }}@${{ secrets.DEV_SSH_HOST }} '
+              set -e
+
+              echo "Moving to app directory..."
+              cd "${{ secrets.DEV_APP_PATH }}"
+
+              echo "Fetching latest development branch..."
+              git fetch origin development
+
+              CURRENT_COMMIT=$(git rev-parse HEAD)
+              NEW_COMMIT=$(git rev-parse origin/development)
+
+              echo "Current commit: $CURRENT_COMMIT"
+              echo "New commit:     $NEW_COMMIT"
+
+              if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
+                echo "No new changes to deploy."
+                exit 0
+              fi
+
+              CHANGED_FILES=$(git diff --name-only "$CURRENT_COMMIT" "$NEW_COMMIT")
+
+              echo "Changed files:"
+              echo "$CHANGED_FILES"
+
+              BACKEND_CHANGED=false
+              FRONTEND_CHANGED=false
+              COMPOSE_CHANGED=false
+
+              echo "$CHANGED_FILES" | grep -q "^backend/" && BACKEND_CHANGED=true || true
+              echo "$CHANGED_FILES" | grep -q "^frontend/" && FRONTEND_CHANGED=true || true
+              echo "$CHANGED_FILES" | grep -q "^docker-compose.dev.yml$" && COMPOSE_CHANGED=true || true
+              echo "$CHANGED_FILES" | grep -q "^.github/workflows/" && COMPOSE_CHANGED=true || true
+
+              echo "Backend changed: $BACKEND_CHANGED"
+              echo "Frontend changed: $FRONTEND_CHANGED"
+              echo "Compose/workflow changed: $COMPOSE_CHANGED"
+
+              echo "Resetting server repo to latest development..."
+              git checkout development
+              git reset --hard origin/development
+
+              echo "Checking required dev files..."
+              test -f .env.dev
+              test -f docker-compose.dev.yml
+
+              if [ "$COMPOSE_CHANGED" = true ]; then
+                echo "Compose/workflow changed. Rebuilding both backend and frontend..."
+                docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build
+              elif [ "$BACKEND_CHANGED" = true ] && [ "$FRONTEND_CHANGED" = true ]; then
+                echo "Both backend and frontend changed. Rebuilding both..."
+                docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build backend-dev frontend-dev
+              elif [ "$BACKEND_CHANGED" = true ]; then
+                echo "Only backend changed. Rebuilding backend..."
+                docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build backend-dev
+              elif [ "$FRONTEND_CHANGED" = true ]; then
+                echo "Only frontend changed. Rebuilding frontend..."
+                docker compose --env-file .env.dev -f docker-compose.dev.yml up -d --build frontend-dev
+              else
+                echo "No backend/frontend/compose changes detected. Nothing to rebuild."
+              fi
+
+              echo "Cleaning Docker builder cache..."
+              docker builder prune -f
+
+              echo "Running containers:"
+              docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            '
