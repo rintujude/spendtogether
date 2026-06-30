@@ -18,10 +18,16 @@ import { useWorkspaceEvents } from "./hooks/useWorkspaceEvents";
 import { queryKeys } from "./lib/queryKeys";
 import "./styles.css";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "/api";
+const apiBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 const queryClient = new QueryClient();
 const tokenStorageKey = "sharedBudgetToken";
 const userStorageKey = "sharedBudgetUser";
+
+function normalizeApiBaseUrl(value) {
+  const trimmed = value?.trim().replace(/\/+$/, "");
+  if (!trimmed) return "/api";
+  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
+}
 
 const authSchema = z.object({
   fullName: z.string().default(""),
