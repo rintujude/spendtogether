@@ -16,4 +16,5 @@ frontend/dist/
 
 # Logs
 logs/
-*.log
+*.log.env.dev
+.env.dev
