@@ -3,6 +3,7 @@ package com.familybudget.controller;
 import com.familybudget.auth.JwtService;
 import com.familybudget.dto.AuthDtos.AuthResponse;
 import com.familybudget.dto.AuthDtos.LoginRequest;
+import com.familybudget.dto.AuthDtos.RefreshTokenRequest;
 import com.familybudget.dto.AuthDtos.RegisterRequest;
 import com.familybudget.dto.AuthDtos.UserSummary;
 import com.familybudget.entity.User;
@@ -76,6 +77,24 @@ public class AuthController {
         return authResponse(user);
     }
 
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        try {
+            if (!jwtService.isRefreshToken(request.refreshToken())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+            }
+
+            User user = userRepository.findById(jwtService.extractUserId(request.refreshToken()))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
+
+            return authResponse(user);
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
+    }
+
     @GetMapping("/me")
     public UserSummary me(Principal principal) {
         if (principal == null) {
@@ -91,6 +110,7 @@ public class AuthController {
     private AuthResponse authResponse(User user) {
         return new AuthResponse(
                 jwtService.createToken(user),
+                jwtService.createRefreshToken(user),
                 new UserSummary(user.getId().toString(), user.getFullName(), user.getEmail())
         );
     }

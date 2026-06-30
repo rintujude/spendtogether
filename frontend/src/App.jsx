@@ -21,6 +21,7 @@ import "./styles.css";
 const apiBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 const queryClient = new QueryClient();
 const tokenStorageKey = "sharedBudgetToken";
+const refreshTokenStorageKey = "sharedBudgetRefreshToken";
 const userStorageKey = "sharedBudgetUser";
 
 function normalizeApiBaseUrl(value) {
@@ -160,14 +161,48 @@ function App() {
   const selectedPaymentSourceId = expenseForm.watch("paymentSourceId");
   const selectedEditPaymentSourceId = editExpenseForm.watch("paymentSourceId");
 
-  async function api(path, options = {}) {
+  function storeAuthSession(result) {
+    localStorage.setItem(tokenStorageKey, result.token);
+    if (result.refreshToken) {
+      localStorage.setItem(refreshTokenStorageKey, result.refreshToken);
+    }
+    localStorage.setItem(userStorageKey, JSON.stringify(result.user));
+    setToken(result.token);
+    setUser(result.user);
+  }
+
+  function redirectToLogin(message = "Please sign in again.") {
+    clearSession();
+    toast.error(message);
+    navigate("/login", { replace: true });
+  }
+
+  async function refreshAccessToken() {
+    const refreshToken = localStorage.getItem(refreshTokenStorageKey);
+    if (!refreshToken) return "";
+
+    const response = await fetch(`${apiBaseUrl}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) return "";
+
+    const result = await response.json();
+    storeAuthSession(result);
+    return result.token;
+  }
+
+  async function api(path, options = {}, retryOnUnauthorized = true) {
     let response;
+    const activeToken = localStorage.getItem(tokenStorageKey) ?? token;
     try {
       response = await fetch(`${apiBaseUrl}${path}`, {
         ...options,
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
           ...(options.headers ?? {}),
         },
       });
@@ -186,12 +221,22 @@ function App() {
         message = body;
       }
 
+      if (!path.startsWith("/auth/") && response.status === 401 && retryOnUnauthorized) {
+        const refreshedToken = await refreshAccessToken();
+        if (refreshedToken) {
+          return api(path, options, false);
+        }
+        redirectToLogin("Your session expired. Please sign in again.");
+        throw new Error("Your session expired. Please sign in again.");
+      }
+
       if (path === "/auth/login" && response.status === 401) {
         message = "Incorrect email or password.";
       }
 
       if (!path.startsWith("/auth/") && response.status === 401) {
-        message = message || "We could not verify this request. Please try again.";
+        redirectToLogin("Your session expired. Please sign in again.");
+        throw new Error("Your session expired. Please sign in again.");
       }
 
       if (!path.startsWith("/auth/") && response.status === 403) {
@@ -210,10 +255,7 @@ function App() {
       const path = mode === "login" ? "/auth/login" : "/auth/register";
       const payload = mode === "login" ? { email: values.email, password: values.password } : values;
       const result = await api(path, { method: "POST", body: JSON.stringify(payload) });
-      localStorage.setItem(tokenStorageKey, result.token);
-      localStorage.setItem(userStorageKey, JSON.stringify(result.user));
-      setToken(result.token);
-      setUser(result.user);
+      storeAuthSession(result);
       toast.success(`Signed in as ${result.user.fullName}`);
       navigate("/dashboard", { replace: true });
     } catch (err) {
@@ -782,6 +824,7 @@ function App() {
 
   function clearSession() {
     localStorage.removeItem(tokenStorageKey);
+    localStorage.removeItem(refreshTokenStorageKey);
     localStorage.removeItem(userStorageKey);
     setToken("");
     setUser(null);

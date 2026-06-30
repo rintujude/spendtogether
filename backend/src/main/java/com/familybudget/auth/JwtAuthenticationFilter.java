@@ -32,6 +32,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authorization != null && authorization.startsWith("Bearer ")) {
             try {
                 String token = authorization.substring(7);
+                if (!jwtService.isAccessToken(token)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 String email = jwtService.extractSubject(token);
                 var authenticatedUser = new AuthenticatedUser(jwtService.extractUserId(token), email);
                 var authentication = new UsernamePasswordAuthenticationToken(

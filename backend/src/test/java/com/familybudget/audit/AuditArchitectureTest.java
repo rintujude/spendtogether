@@ -44,11 +44,14 @@ class AuditArchitectureTest {
         setEntityId(user, userId);
         user.setEmail("user@example.com");
 
-        JwtService jwtService = new JwtService("01234567890123456789012345678901", 60);
+        JwtService jwtService = new JwtService("01234567890123456789012345678901", 60, 43200);
         String token = jwtService.createToken(user);
+        String refreshToken = jwtService.createRefreshToken(user);
 
         assertThat(jwtService.extractSubject(token)).isEqualTo("user@example.com");
         assertThat(jwtService.extractUserId(token)).isEqualTo(userId);
+        assertThat(jwtService.isAccessToken(token)).isTrue();
+        assertThat(jwtService.isRefreshToken(refreshToken)).isTrue();
     }
 
     @Test

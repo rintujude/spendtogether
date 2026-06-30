@@ -63,6 +63,9 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
         String token = authorization.substring(7);
         try {
+            if (!jwtService.isAccessToken(token)) {
+                throw new AccessDeniedException("Invalid WebSocket token type");
+            }
             accessor.setUser(new AuthenticatedUser(jwtService.extractUserId(token), jwtService.extractSubject(token)));
         } catch (RuntimeException ex) {
             log.warn("WebSocket authentication rejected reason=invalid_token");

@@ -22,7 +22,13 @@ public final class AuthDtos {
 
     public record AuthResponse(
             String token,
+            String refreshToken,
             UserSummary user
+    ) {
+    }
+
+    public record RefreshTokenRequest(
+            @NotBlank String refreshToken
     ) {
     }
 
@@ -33,4 +39,3 @@ public final class AuthDtos {
     ) {
     }
 }
-
