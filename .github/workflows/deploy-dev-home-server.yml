@@ -11,13 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install cloudflared
-        run: |
-          set -e
-          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
-          chmod +x cloudflared
-          sudo mv cloudflared /usr/local/bin/cloudflared
-          cloudflared --version
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
 
       - name: Prepare SSH
         run: |
@@ -28,21 +25,22 @@ jobs:
           echo "${{ secrets.DEV_SSH_KEY }}" > ~/.ssh/dev_home_server_key
           chmod 600 ~/.ssh/dev_home_server_key
 
-          cat > ~/.ssh/config <<SSHCONFIG
-          Host home-server-dev
-            HostName ${{ secrets.DEV_SSH_HOST }}
-            User ${{ secrets.DEV_SSH_USER }}
-            IdentityFile ~/.ssh/dev_home_server_key
-            StrictHostKeyChecking no
-            ProxyCommand cloudflared access tcp --hostname %h --header "CF-Access-Client-Id: ${{ secrets.CF_ACCESS_CLIENT_ID }}" --header "CF-Access-Client-Secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}"
-          SSHCONFIG
+          cat > ~/.ssh/config <<EOF
+Host home-server-dev
+  HostName ${{ secrets.DEV_SSH_HOST }}
+  User ${{ secrets.DEV_SSH_USER }}
+  IdentityFile ~/.ssh/dev_home_server_key
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+EOF
 
           chmod 600 ~/.ssh/config
 
       - name: Test SSH connection
         run: |
           set -e
-          ssh -vvv -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 home-server-dev 'whoami && hostname && pwd'
+          ssh -o BatchMode=yes -o ConnectTimeout=30 home-server-dev 'whoami && hostname && pwd'
+
       - name: Deploy development app
         run: |
           set -e
