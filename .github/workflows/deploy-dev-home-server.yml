@@ -34,7 +34,7 @@ jobs:
             User ${{ secrets.DEV_SSH_USER }}
             IdentityFile ~/.ssh/dev_home_server_key
             StrictHostKeyChecking no
-            ProxyCommand cloudflared access tcp --hostname %h --service-token-id ${{ secrets.CF_ACCESS_CLIENT_ID }} --service-token-secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+            ProxyCommand cloudflared access tcp --hostname %h --header "CF-Access-Client-Id: ${{ secrets.CF_ACCESS_CLIENT_ID }}" --header "CF-Access-Client-Secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}"
           SSHCONFIG
 
           chmod 600 ~/.ssh/config
